@@ -1,5 +1,15 @@
 ---
 import SectionTitle from "@/components/section-title.astro";
+import Badge from "@/components/ui/badge.astro";
+
+const professionalStartDate = new Date(2025, 4);
+const currentDate = new Date();
+const professionalExperienceMonths =
+  (currentDate.getFullYear() - professionalStartDate.getFullYear()) * 12 +
+  currentDate.getMonth() -
+  professionalStartDate.getMonth();
+const professionalExperienceYears =
+  Math.ceil((professionalExperienceMonths / 12) * 2) / 2;
 ---
 
 <article class="flex flex-col spacing-md">
@@ -7,15 +17,19 @@ import SectionTitle from "@/components/section-title.astro";
 
   <div class="flex flex-col spacing-xs">
     <p>
-      I'm a full-stack engineer focused on speed and building scalable, reliable
-      products across complex systems and evolving requirements.
+      Full Stack Engineer with {professionalExperienceYears} years of professional experience
+      building AI and SaaS products for businesses across different industries. I focus on creating
+      scalable, reliable systems and intuitive user experiences.
     </p>
     <p>
-      I can take responsibilities across frontend, backend, infrastructure, and
-      delivery while collaborating with engineering teams, and clients to turn
-      ideas into polished products. While I work across the full stack, I
-      specialize in frontend engineering, crafting intuitive, high-performance
-      experiences with clean component architecture.
+      I can take responsibilities across Frontend, Backend, and DevOps, partnering closely with engineering teams and clients to turn ideas into polished products.
+    </p>
+    <p>
+      Currently strongest with <Badge name="Next.js" />,&nbsp;<Badge name="Astro" />,&nbsp;<Badge
+        name="Prisma"
+      />,&nbsp;<Badge name="PostgreSQL" />,&nbsp;and&nbsp;<Badge name="Cloudflare" />. I also work
+      with <Badge name="NestJS" /> and <Badge name="FastAPI" />, and I am continuing to build depth
+      in both.
     </p>
   </div>
 </article>

@@ -2,6 +2,8 @@
 import { Image } from "astro:assets";
 import aniquinch from "@/assets/projects/aniquinch-1.webp";
 import huefit from "@/assets/projects/huefit-1.webp";
+import lemonlawmike from "@/assets/projects/lemonlawmike-1.webp";
+import marrylymatch from "@/assets/projects/marrylymatch-1.webp";
 import onlyfunds from "@/assets/projects/onlyfunds-1.webp";
 import pasabuy from "@/assets/projects/pasabuy-1.webp";
 import promptwise from "@/assets/projects/promptwise-1.webp";
@@ -40,8 +42,7 @@ const projects: Project[] = [
     technologies: [
       "Next.js",
       "Prisma",
-      "Supabase",
-      "PostgreSQL",
+      "PostgreSQL - Supabase",
       "Trigger.dev",
       "Cloudflare",
       "AI Generation",
@@ -56,9 +57,8 @@ const projects: Project[] = [
       "A modern Customer Relationship Management web application featuring a conversational AI Sales Agent that calls and engages with clients on users’ behalf, alongside quotations, invoices, call recordings, email management, currency conversion, and analytics.",
     technologies: [
       "Next.js",
-      "Supabase",
       "Prisma",
-      "PostgreSQL",
+      "PostgreSQL - Supabase",
       "ElevenLabs",
       "OpenAI",
     ],
@@ -66,12 +66,39 @@ const projects: Project[] = [
     websiteLink: "https://www.superproxy.ai/",
   },
   {
+    title: "MarrylyMatch",
+    type: "Company",
+    description:
+      "A matchmaking service platform that curates trusted women’s profiles from multiple partner dating sites through a dedicated ingestion pipeline.",
+    technologies: [
+      "React Router",
+      "Fastify",
+      "Astro",
+      "Prisma",
+      "PostgreSQL (PlanetScale)",
+      "Redis",
+      "Fly.io",
+      "Cloudflare",
+    ],
+    images: [marrylymatch],
+    websiteLink: "https://marrylymatch.com/",
+  },
+  {
     title: "Thryve",
     type: "Company",
     description:
       "A Dating site with gender-based profile discovery, profile management, liking and matching, an affiliate program, real-time messaging with voice and video calling.",
-    technologies: ["Next.js", "Supabase", "Prisma", "PostgreSQL"],
+    technologies: ["Next.js", "Prisma", "PostgreSQL - Supabase"],
     images: [thryve],
+  },
+  {
+    title: "LemonLawMike",
+    type: "Company",
+    description:
+      "An SEO-focused site for a California lemon law firm that helps drivers pursue buybacks, replacements, or cash settlements for defective vehicles.",
+    technologies: ["Astro", "Cloudflare", "Amplitude", "Resend"],
+    images: [lemonlawmike],
+    websiteLink: "https://lemonlawmike.com/",
   },
   {
     title: "HueFit",
@@ -80,8 +107,8 @@ const projects: Project[] = [
       "A modern E-commerce mobile application featuring AI-powered and AR virtual fitting, skin tone-based outfit color matching, and a web-based system for inventory and order management.",
     technologies: [
       "Next.js",
-      "Supabase",
       "Prisma",
+      "PostgreSQL - Supabase",
       "React Native Expo",
       "FastAPI",
     ],
@@ -136,7 +163,7 @@ const visibleProjects = publishedProjects.slice(0, limit);
 ---
 
 <section class="flex flex-col spacing-md">
-  <SectionTitle text="Projects" />
+  <SectionTitle text={`Projects (${publishedProjects.length})`} />
 
   <div class="flex flex-col spacing-lg">
     {

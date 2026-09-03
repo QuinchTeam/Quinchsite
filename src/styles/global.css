@@ -44,6 +44,10 @@
   gap: var(--spacing-xl);
 }
 
+@utility padding-xxs {
+  padding: var(--spacing-xxs);
+}
+
 @utility padding-xs {
   padding: var(--spacing-xs);
 }
