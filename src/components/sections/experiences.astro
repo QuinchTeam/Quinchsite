@@ -30,8 +30,8 @@ const experiences: Experience[] = [
     location: "Boulder, Colorado, United States",
     workMode: "Remote",
     descriptions: [
-      "Working as a Full-Stack Engineer across different products, including AI-powered ones, contributing end-to-end across frontend, backend, and infrastructure. Across the projects I work on, my contributions span from crafting sleek and intuitive UIs, building scalable backend systems and APIs, optimizing databases, and improving application performance",
-      "Collaborate with experienced developers across different projects in a professional, fast-moving team environment, working within AI-assisted workflows, ticket-based development, PR-based code reviews, regular dev meetings, and disciplined engineering practices around commits, PRs, and code quality.",
+      "Working as a Full-Stack Engineer on AI and SaaS products, contributing to frontend, backend, and DevOps. Learned to develop using various modern technologies such as Next.js, React Router, Fastify, Astro, Prisma, PostgreSQL, Cloudflare, Fly.io etc.",
+      "Collaborating with developers and project managers on multiple projects in a professional, fast-moving environment, using AI to accelerate delivery and bridge knowledge gaps while maintaining disciplined engineering practices and a client-first mindset.",
     ],
     technologies: [
       "Next.js",
@@ -56,8 +56,8 @@ const experiences: Experience[] = [
     location: "Pasig City, Philippines",
     workMode: "Remote",
     descriptions: [
-      "Worked as a sole Founding Engineer for a startup, I led the end-to-end infrastructure and development of their core software products including a modern AI-Powered CRM. I developed products using Next.js, Prisma, Supabase and Vercel, while integrating various third-party services such as Stripe, Twilio, Resend and AI-integrations such as ElevenLabs and OpenAI.",
-      "Collaborate personally with the founder, translating business requirements into technical solutions while adapting quickly to frequent shifts in direction.",
+      "Worked as one of Founding Engineer for a startup, I led the development and infrastructure of their software products including a modern AI-Powered CRM. I developed using Next.js, Prisma, PostgreSQL (Supabase) and Vercel, while integrating third-party services such as Stripe, Twilio, Resend, ElevenLabs, and OpenAI.",
+      "Collaborated closely with the founder, translating business requirements into technical solutions while adapting quickly to frequent shifts in direction.",
     ],
     technologies: [
       "Next.js",
@@ -114,7 +114,7 @@ const experiences: Experience[] = [
                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" class="size-10 text-primary/50"><path fill="currentColor" d="M2 2h14v4h6v16H2zm18 6h-4v2h2v2h-2v2h2v2h-2v2h2v2h2zm-6-4H4v16h2v-2h6v2h2zM6 6h2v2H6zm6 0h-2v2h2zm-6 4h2v2H6zm6 0h-2v2h2zm-6 4h2v2H6zm6 0h-2v2h2z"></path></svg>
               </div>
             )}
-            <header class="w-full border-b border-dashed border-transparent padding-md animation-normal group-hover:border-border">
+            <header class="w-full border-b border-dashed border-transparent mt-2 lg:mt-0 lg:padding-md animation-normal group-hover:border-border">
               <div class="flex flex-col justify-between lg:flex-row">
                 <h2 class="font-semibold text-primary">{experience.title}</h2>
                 <time class="text-primary">{experience.period}</time>
@@ -146,7 +146,7 @@ const experiences: Experience[] = [
           </div>
           <section class="flex flex-col spacing-xs">
             {experience.descriptions.map((desc) => (
-              <p>{desc}</p>
+              <p class="text-foreground/80">{desc}</p>
             ))}
           </section>
           <ul class="flex flex-wrap spacing-xs">

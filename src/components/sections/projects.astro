@@ -214,7 +214,7 @@ const visibleProjects = publishedProjects.slice(0, limit);
                 <span>{project.type}</span>
               </div>
             </div>
-            <p>{project.description}</p>
+            <p class="text-foreground/80">{project.description}</p>
             <div class="flex flex-wrap spacing-xs">
               {project.technologies.map((tech) => (
                 <Badge name={tech} />
