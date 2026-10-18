@@ -3,5 +3,5 @@
   "name": "quinchsite",
   "pages_build_output_dir": "./dist",
   "compatibility_date": "2026-06-26",
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
 }

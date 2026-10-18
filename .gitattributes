@@ -1,0 +1,2 @@
+# Oxfmt (vp fmt) writes LF; keep checkouts LF so `vp check` stays clean on Windows.
+* text=auto eol=lf
