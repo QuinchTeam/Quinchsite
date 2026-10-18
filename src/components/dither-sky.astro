@@ -225,16 +225,22 @@
         }
         context.globalAlpha = 1;
       }
+      const glow = celestialRadius * 2.1;
       for (const cloud of clouds) {
         const wrap = width + cloud.image.width;
         const x = ((cloud.x + elapsed * cloud.speed + cloud.image.width) % wrap) - cloud.image.width;
-        context.save();
-        context.beginPath();
-        context.arc(width / 2, celestialY, celestialRadius * 2.1, 0, Math.PI * 2);
-        context.clip();
-        context.globalAlpha = 1;
-        context.drawImage(cloud.cover, Math.round(x), Math.round(cloud.y));
-        context.restore();
+        // The cover only hides the sun/moon glow, so skip the costly clip for clouds that can't touch it.
+        const nearGlow = x < width / 2 + glow && x + cloud.image.width > width / 2 - glow
+          && cloud.y < celestialY + glow && cloud.y + cloud.image.height > celestialY - glow;
+        if (nearGlow) {
+          context.save();
+          context.beginPath();
+          context.arc(width / 2, celestialY, glow, 0, Math.PI * 2);
+          context.clip();
+          context.globalAlpha = 1;
+          context.drawImage(cloud.cover, Math.round(x), Math.round(cloud.y));
+          context.restore();
+        }
         context.globalAlpha = cloud.opacity;
         context.drawImage(cloud.image, Math.round(x), Math.round(cloud.y));
       }
@@ -280,14 +286,21 @@
       else draw();
     }
 
+    const theme = () => ["dark", "teal", "azure", "crimson", "aurora"].filter((name) => root.classList.contains(name)).join();
+    let currentTheme = theme();
+    // ResizeObserver also fires once on observe, which handles the first build.
     new ResizeObserver(rebuild).observe(canvas);
-    new MutationObserver(rebuild).observe(root, { attributes: true, attributeFilter: ["class"] });
+    new MutationObserver(() => {
+      // Ignore unrelated <html> classes such as preload/scroll-restoring.
+      if (theme() === currentTheme) return;
+      currentTheme = theme();
+      rebuild();
+    }).observe(root, { attributes: true, attributeFilter: ["class"] });
     new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting;
       updateAnimation();
     }).observe(canvas);
     reducedMotion.addEventListener("change", updateAnimation);
     document.addEventListener("visibilitychange", updateAnimation);
-    rebuild();
   }
 </script>

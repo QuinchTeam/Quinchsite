@@ -24,12 +24,26 @@
 
   if (canvas && context) {
     const root = document.documentElement;
-    const scene = document.createElement("canvas");
-    const p = scene.getContext("2d", { willReadFrequently: true })!;
-    const cloudLayer = document.createElement("canvas");
-    const cloudContext = cloudLayer.getContext("2d")!;
-    const cloudSprite = document.createElement("canvas");
-    const cloudSpriteContext = cloudSprite.getContext("2d")!;
+    // Static layers are built once per resize/theme; frames only composite moving clouds between them.
+    // All layers stay CPU-backed so per-frame drawImage + getImageData never forces a GPU readback.
+    const layer = () => {
+      const surface = document.createElement("canvas");
+      return [surface, surface.getContext("2d", { willReadFrequently: true })!] as const;
+    };
+    const [scene, sceneContext] = layer();
+    const [atmosphereLayer, atmosphereContext] = layer();
+    // Stars + silhouettes on a transparent layer; source-over is associative, so this matches drawing them in sequence.
+    const [front, p] = layer();
+    const clouds: { image: HTMLCanvasElement; x: number; y: number; speed: number; width: number }[] = [];
+    const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    // Quantized channel value for each (Bayer threshold, input byte) pair.
+    const levels = new Uint8Array(16 * 256);
+    for (let step = 0; step < 16; step++) {
+      for (let input = 0; input < 256; input++) {
+        const value = input / 12;
+        levels[step * 256 + input] = Math.min(255, (Math.floor(value) + (value % 1 > (step + 0.5) / 16 ? 1 : 0)) * 12);
+      }
+    }
     const noise = (x: number, y: number) => {
       const value = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
       return value - Math.floor(value);
@@ -51,27 +65,32 @@
       a.map((value, index) => Math.round(value + (b[index] - value) * amount));
     const css = (color: number[]) => `rgb(${color.join(",")})`;
     let dark = false;
+    let width = 0;
+    let height = 0;
+    let bandTop = 0;
+    let bandBottom = 0;
     let cloudOffset = 0;
     let previousTime = 0;
     let frame = 0;
     let visible = false;
 
-    function drawClouds(width: number, height: number, background: number[], sky: number[]) {
-      cloudLayer.width = width;
-      cloudLayer.height = height;
-      cloudContext.clearRect(0, 0, width, height);
+    function buildClouds(background: number[], sky: number[]) {
+      clouds.length = 0;
+      bandTop = height;
+      bandBottom = 0;
       if (!dark) return;
       const count = Math.max(5, Math.floor(width / 220));
       for (let index = 0; index < count; index++) {
         const seed = index + 67;
         const cloudWidth = 210 + noise(seed, 1) * 210;
         const cloudHeight = cloudWidth * (0.2 + noise(seed, 2) * 0.28);
+        const [cloudSprite, cloudSpriteContext] = layer();
         cloudSprite.width = Math.ceil(cloudWidth);
         cloudSprite.height = Math.ceil(cloudHeight);
-        cloudSpriteContext.clearRect(0, 0, cloudSprite.width, cloudSprite.height);
-        const baseX = (index / count) * width;
-        const x = ((baseX + cloudOffset * (0.3 + noise(seed, 3)) + cloudWidth) % (width + cloudWidth)) - cloudWidth;
         const y = height * (0.16 + noise(seed, 4) * 0.26);
+        clouds.push({ image: cloudSprite, x: (index / count) * width, y, speed: 0.3 + noise(seed, 3), width: cloudWidth });
+        bandTop = Math.min(bandTop, Math.round(y));
+        bandBottom = Math.min(height, Math.max(bandBottom, Math.round(y) + cloudSprite.height));
         const lobes = 4 + Math.floor(noise(seed, 5) * 4);
         const lobeShapes = Array.from({ length: lobes }, (_, lobe) => {
           const position = lobe / (lobes - 1);
@@ -116,20 +135,17 @@
             cloudSpriteContext.fillRect(px, py, 1, 1);
           }
         }
-        cloudSpriteContext.globalAlpha = 1;
-        cloudContext.drawImage(cloudSprite, Math.round(x), Math.round(y));
       }
-      cloudContext.globalAlpha = 1;
     }
 
-    function render() {
+    function rebuild() {
       if (!canvas || !context) return;
       const bounds = canvas.getBoundingClientRect();
       if (!bounds.width || !bounds.height) return;
-      const width = Math.max(1, Math.round(bounds.width));
-      const height = Math.max(1, Math.round(bounds.height));
-      canvas.width = scene.width = width;
-      canvas.height = scene.height = height;
+      width = Math.max(1, Math.round(bounds.width));
+      height = Math.max(1, Math.round(bounds.height));
+      canvas.width = scene.width = atmosphereLayer.width = front.width = width;
+      canvas.height = scene.height = atmosphereLayer.height = front.height = height;
       const styles = getComputedStyle(root);
       const background = rgb(styles.getPropertyValue("--background"));
       const primary = rgb(styles.getPropertyValue("--primary"));
@@ -140,7 +156,7 @@
       const light = colored ? primary : rgb(dark ? "#eed5a0" : "#f9edca");
       const ink = colored ? primary : rgb("#172735");
       const horizon = height * 0.83;
-      const atmosphere = p.createImageData(width, height);
+      const atmosphere = atmosphereContext.createImageData(width, height);
       for (let y = 0; y < height; y++) {
         const altitude = y / height;
         const haze = Math.max(0, 1 - Math.abs(altitude - 0.75) / 0.75);
@@ -156,10 +172,9 @@
           atmosphere.data[index + 3] = 255;
         }
       }
-      p.putImageData(atmosphere, 0, 0);
+      atmosphereContext.putImageData(atmosphere, 0, 0);
 
-      drawClouds(width, height, background, sky);
-      p.drawImage(cloudLayer, 0, 0);
+      buildClouds(background, sky);
 
       if (dark) {
         for (let index = 0; index < Math.max(35, width / 13); index++) {
@@ -407,29 +422,44 @@
       drawBuildings(2);
       drawTrees(1);
       p.restore();
-
-      // Ordered quantization makes gradients and silhouettes share the sky's pixel texture.
-      const pixels = p.getImageData(0, 0, width, height);
-      const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const index = (y * width + x) * 4;
-          const threshold = (bayer[(y % 4) * 4 + x % 4] + 0.5) / 16;
-          for (let channel = 0; channel < 3; channel++) {
-            const value = pixels.data[index + channel] / 12;
-            pixels.data[index + channel] = Math.min(255, (Math.floor(value) + (value % 1 > threshold ? 1 : 0)) * 12);
-          }
-        }
-      }
-      context.putImageData(pixels, 0, 0);
+      compose(0, height);
     }
 
+    // Composites rows [top, top + rows) and dithers only those, so cloud frames skip the static ground.
+    function compose(top: number, rows: number) {
+      if (!context || rows <= 0) return;
+      sceneContext.drawImage(atmosphereLayer, 0, top, width, rows, 0, top, width, rows);
+      for (const cloud of clouds) {
+        const x = ((cloud.x + cloudOffset * cloud.speed + cloud.width) % (width + cloud.width)) - cloud.width;
+        sceneContext.drawImage(cloud.image, Math.round(x), Math.round(cloud.y));
+      }
+      sceneContext.drawImage(front, 0, top, width, rows, 0, top, width, rows);
+
+      // Ordered quantization makes gradients and silhouettes share the sky's pixel texture.
+      const pixels = sceneContext.getImageData(0, top, width, rows);
+      const data = pixels.data;
+      for (let y = 0; y < rows; y++) {
+        const row = ((top + y) % 4) * 4;
+        for (let x = 0; x < width; x++) {
+          const step = bayer[row + (x % 4)] * 256;
+          const index = (y * width + x) * 4;
+          data[index] = levels[step + data[index]];
+          data[index + 1] = levels[step + data[index + 1]];
+          data[index + 2] = levels[step + data[index + 2]];
+        }
+      }
+      context.putImageData(pixels, 0, top);
+    }
+
+    // Clouds drift at most ~10px/s and snap to whole pixels, so 15fps shows every step.
     function animate(time: number) {
       frame = 0;
       if (!visible || document.hidden || !dark) return;
-      if (previousTime) cloudOffset = (cloudOffset + Math.min(time - previousTime, 50) * 0.008) % 2000;
-      previousTime = time;
-      render();
+      if (time - previousTime >= 1000 / 15) {
+        if (previousTime) cloudOffset = (cloudOffset + Math.min(time - previousTime, 200) * 0.008) % 2000;
+        previousTime = time;
+        compose(bandTop, bandBottom - bandTop);
+      }
       frame = requestAnimationFrame(animate);
     }
 
@@ -438,11 +468,19 @@
       frame = 0;
       previousTime = 0;
       if (visible && !document.hidden && dark) frame = requestAnimationFrame(animate);
-      else render();
     }
 
-    new ResizeObserver(render).observe(canvas);
-    new MutationObserver(render).observe(root, {
+    const theme = () => ["dark", "teal", "azure", "crimson", "aurora"].filter((name) => root.classList.contains(name)).join();
+    let currentTheme = theme();
+    // ResizeObserver also fires once on observe, which handles the first build.
+    new ResizeObserver(rebuild).observe(canvas);
+    new MutationObserver(() => {
+      // Ignore unrelated <html> classes such as preload/scroll-restoring.
+      if (theme() === currentTheme) return;
+      currentTheme = theme();
+      rebuild();
+      updateAnimation();
+    }).observe(root, {
       attributes: true,
       attributeFilter: ["class"],
     });
@@ -451,6 +489,5 @@
       updateAnimation();
     }).observe(canvas);
     document.addEventListener("visibilitychange", updateAnimation);
-    render();
   }
 </script>
