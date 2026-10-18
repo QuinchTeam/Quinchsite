@@ -313,7 +313,8 @@
         }
       };
       // Low, rounded tree crowns: a dark silhouette that swallows the building bases.
-      const tint = colored ? foreground : (dark ? sky : ink);
+      // Light treelines read as foliage: green on default, the theme's primary on color themes.
+      const tint = dark ? (colored ? foreground : sky) : colored ? primary : rgb("#4f8a4b");
       const treeTop = (x: number, layer: number) => {
         const size = layer ? 9 : 6;
         const cell = Math.floor(x / size);
@@ -327,7 +328,8 @@
         return base + (layer ? 12 : 1) - lift + Math.sin(x * 0.02 + layer * 3) * 3;
       };
       const drawTrees = (layer: number) => {
-        const treeColor = mix(background, tint, layer ? 0.06 : 0.16);
+        // Dark: near trees fade toward the background. Light: near trees are the most saturated.
+        const treeColor = mix(background, tint, dark ? (layer ? 0.06 : 0.16) : layer ? 0.42 : 0.28);
         p.fillStyle = css(treeColor);
         p.beginPath();
         p.moveTo(0, 310);
