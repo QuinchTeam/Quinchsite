@@ -83,7 +83,8 @@ import Toast from "@/components/ui/toast.astro";
     errors?: Array<{ path?: Array<string | number>; message?: string }>;
   };
 
-  const form = document.querySelector<HTMLFormElement>("[data-contact-form]");
+  // Re-queried on every client-side navigation; this module script itself only runs once.
+  let form: HTMLFormElement | null = null;
   const toast = (message: string, type: ToastType = "info") => {
     const toastWindow = window as Window & {
       quinchToast?: (message: string, type?: ToastType) => void;
@@ -173,6 +174,8 @@ import Toast from "@/components/ui/toast.astro";
     }
   };
 
+  document.addEventListener("astro:page-load", () => {
+  form = document.querySelector<HTMLFormElement>("[data-contact-form]");
   const contactForm = form;
 
   contactForm?.addEventListener("submit", async (event) => {
@@ -222,5 +225,6 @@ import Toast from "@/components/ui/toast.astro";
     } finally {
       setPending(false);
     }
+  });
   });
 </script>

@@ -9,6 +9,8 @@ export default defineConfig({
   site: "https://www.quinchy.dev",
   output: "static",
   integrations: [sitemap()],
+  // Fetch pages on link hover so client-side navigation swaps instantly.
+  prefetch: { prefetchAll: true },
   build: {
     inlineStylesheets: "always",
   },

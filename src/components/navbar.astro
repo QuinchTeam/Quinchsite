@@ -35,6 +35,7 @@ const itemClass =
 ---
 
 <nav
+  transition:persist="navbar"
   data-navbar
   aria-label="Main navigation"
   class:list={[
@@ -276,4 +277,8 @@ const itemClass =
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", initNavbar);
   else initNavbar();
+  // The navbar persists across client-side navigation, so only the active link changes.
+  document.addEventListener("astro:page-load", () =>
+    markActive("data-page", readPage()),
+  );
 </script>
