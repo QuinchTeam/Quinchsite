@@ -156,7 +156,8 @@
       const foreground = rgb(styles.getPropertyValue("--foreground"));
       dark = root.classList.contains("dark");
       const colored = ["teal", "azure", "crimson", "aurora"].some((theme) => root.classList.contains(theme));
-      const sky = colored ? foreground : rgb(dark ? "#526885" : "#82b8dc");
+      // Light themed --foreground is a deep shade that turns the haze murky; --primary keeps the theme's hue.
+      const sky = colored ? (dark ? foreground : primary) : rgb(dark ? "#526885" : "#82b8dc");
       const light = colored ? primary : rgb(dark ? "#eed5a0" : "#f9edca");
       const ink = colored ? primary : rgb("#172735");
       const horizon = height * 0.83;
