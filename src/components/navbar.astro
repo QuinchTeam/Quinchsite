@@ -14,11 +14,6 @@ const pages = [
   { href: "/experiences", label: "Experiences" },
   { href: "/projects", label: "Projects" },
 ];
-const modes = [
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-  { value: "system", label: "System" },
-];
 const colors = [
   { value: "default", label: "Default" },
   { value: "teal", label: "Teal" },
@@ -103,43 +98,22 @@ const itemClass =
         }
       </div>
     </div>
-    <div class="relative" data-menu>
-      <Button
-        type="button"
-        variant="ghost"
-        class={`${triggerClass} size-9 shrink-0 border border-border`}
-        data-menu-trigger
-        aria-expanded="false"
-        aria-haspopup="true"
-        aria-label="Change color mode"
-        title="Change color mode"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
-        </svg>
-      </Button>
-      <div
-        class={`${dropdownClass} hidden`}
-        data-menu-dropdown
-        role="menu"
-        aria-label="Color mode options"
-      >
-        {
-          modes.map((mode) => (
-            <Button
-              type="button"
-              variant="ghost"
-              class={itemClass}
-              role="menuitem"
-              data-mode={mode.value}
-            >
-              {mode.label}
-            </Button>
-          ))
-        }
-      </div>
-    </div>
+    <Button
+      type="button"
+      variant="ghost"
+      class={`${triggerClass} size-9 shrink-0 border border-border`}
+      data-mode-toggle
+      aria-label="Toggle dark mode"
+      title="Toggle dark mode"
+    >
+      <svg class="mode-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+      </svg>
+      <svg class="mode-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    </Button>
 
     <div class="relative" data-menu>
       <Button
@@ -183,6 +157,17 @@ const itemClass =
     </div>
   </div>
 </nav>
+
+<style>
+  /* CSS keys off <html class="dark"> so the right icon shows on first paint. */
+  .mode-moon,
+  :global(.dark) .mode-sun {
+    display: none;
+  }
+  :global(.dark) .mode-moon {
+    display: block;
+  }
+</style>
 
 <script>
   const ACTIVE = ["bg-primary", "text-background", "hover:bg-primary/75"];
@@ -245,15 +230,22 @@ const itemClass =
       });
     }
 
-    for (const button of nav.querySelectorAll("[data-mode]")) {
-      button.addEventListener("click", () => {
-        const mode = button.getAttribute("data-mode");
-        if (!mode) return;
-        localStorage.setItem("theme", mode);
-        applyClasses(mode, readColor());
-        markActive("data-mode", mode);
-      });
-    }
+    const toggle = nav.querySelector("[data-mode-toggle]");
+    const syncToggle = () =>
+      toggle?.setAttribute(
+        "aria-pressed",
+        String(document.documentElement.classList.contains("dark")),
+      );
+    // Flip whatever is showing (including a "system" result) and save it explicitly.
+    toggle?.addEventListener("click", () => {
+      const mode = document.documentElement.classList.contains("dark")
+        ? "light"
+        : "dark";
+      localStorage.setItem("theme", mode);
+      applyClasses(mode, readColor());
+      syncToggle();
+    });
+    syncToggle();
 
     for (const button of nav.querySelectorAll("[data-color]")) {
       button.addEventListener("click", () => {
@@ -265,7 +257,6 @@ const itemClass =
       });
     }
 
-    markActive("data-mode", readMode());
     markActive("data-color", readColor());
     markActive("data-page", readPage());
   };
