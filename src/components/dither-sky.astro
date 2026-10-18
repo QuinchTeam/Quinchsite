@@ -54,8 +54,8 @@
     let celestialRadius = 0;
     let nextComet = 4 + Math.random() * 5;
     const comet = { start: -Infinity, x: 0, y: 0, length: 80 };
-    const cloudy = Math.random() < 0.5;
-    const cloudSeed = Math.random() * 1000;
+    // Fixed seed so clouds and stars look the same on every load.
+    const cloudSeed = 137;
 
     function rebuild() {
       if (!canvas || !context) return;
@@ -135,7 +135,7 @@
       }
 
       clouds.length = 0;
-      const count = cloudy ? (width < 600 ? 8 : 13) : (width < 600 ? 3 : 5);
+      const count = width < 600 ? 8 : 13;
       for (let index = 0; index < count; index++) {
         const sprite = document.createElement("canvas");
         const seed = index + cloudSeed;
