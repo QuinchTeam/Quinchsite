@@ -59,8 +59,12 @@
       const bottom = noise(ix, iy + 1) * (1 - sx) + noise(ix + 1, iy + 1) * sx;
       return top * (1 - sy) + bottom * sy;
     };
-    const rgb = (hex: string) =>
-      [1, 3, 5].map((offset) => Number.parseInt(hex.trim().slice(offset, offset + 2), 16));
+    // Let canvas normalize any CSS color: the minifier shortens tokens like #ffffff to #fff.
+    const probe = document.createElement("canvas").getContext("2d")!;
+    const rgb = (color: string) => {
+      probe.fillStyle = color.trim();
+      return [1, 3, 5].map((offset) => Number.parseInt(String(probe.fillStyle).slice(offset, offset + 2), 16));
+    };
     const mix = (a: number[], b: number[], amount: number) =>
       a.map((value, index) => Math.round(value + (b[index] - value) * amount));
     const css = (color: number[]) => `rgb(${color.join(",")})`;
