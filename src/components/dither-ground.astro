@@ -78,11 +78,10 @@
     let frame = 0;
     let visible = false;
 
-    function buildClouds(background: number[], sky: number[]) {
+    function buildClouds(cover: number[], shade: number[], lit: number[]) {
       clouds.length = 0;
       bandTop = height;
       bandBottom = 0;
-      if (!dark) return;
       const count = Math.max(5, Math.floor(width / 220));
       for (let index = 0; index < count; index++) {
         const seed = index + 67;
@@ -126,7 +125,7 @@
             const undersideStart = 0.57 + Math.sin(nx * 14 + seed) * 0.045;
             const underside = Math.max(0, Math.min(1, (ny - undersideStart) / 0.36));
             const fade = (1 - underside) ** 1.5;
-            cloudSpriteContext.fillStyle = css(mix(background, sky, 0.3));
+            cloudSpriteContext.fillStyle = css(cover);
             cloudSpriteContext.globalAlpha = edge * Math.sqrt(fade) * 0.45;
             cloudSpriteContext.fillRect(px, py, 3, 3);
             if (noise(px + seed, py + 13) > edge * fade) continue;
@@ -134,7 +133,7 @@
             const illumination = 0.2 + Math.sqrt(shape) * 0.5 + lighting + billow - ny * 0.1;
             const tone = Math.max(0, Math.min(1,
               Math.round((illumination + (noise(px, py) - 0.5) * 0.12) * 9) / 9));
-            cloudSpriteContext.fillStyle = css(mix(mix(background, sky, 0.28), mix(background, sky, 0.88), tone));
+            cloudSpriteContext.fillStyle = css(mix(shade, lit, tone));
             cloudSpriteContext.globalAlpha = edge * Math.sqrt(fade) * 0.8;
             cloudSpriteContext.fillRect(px, py, 1, 1);
           }
@@ -179,7 +178,13 @@
       }
       atmosphereContext.putImageData(atmosphere, 0, 0);
 
-      buildClouds(background, sky);
+      // Night clouds glow toward the sky color; day clouds are pale with darker undersides.
+      const cloudTint = dark ? sky : colored ? primary : rgb("#6b737d");
+      buildClouds(
+        mix(background, cloudTint, dark ? 0.3 : 0.1),
+        mix(background, cloudTint, dark ? 0.28 : 0.4),
+        mix(background, cloudTint, dark ? 0.88 : 0.1),
+      );
 
       if (dark) {
         for (let index = 0; index < Math.max(35, width / 13); index++) {
@@ -524,7 +529,7 @@
     // Clouds drift at most ~10px/s and snap to whole pixels, so 15fps shows every step.
     function animate(time: number) {
       frame = 0;
-      if (!visible || document.hidden || !dark) return;
+      if (!visible || document.hidden || !clouds.length) return;
       if (time - previousTime >= 1000 / 15) {
         if (previousTime) cloudOffset = (cloudOffset + Math.min(time - previousTime, 200) * 0.008) % 2000;
         previousTime = time;
@@ -537,7 +542,7 @@
       cancelAnimationFrame(frame);
       frame = 0;
       previousTime = 0;
-      if (visible && !document.hidden && dark) frame = requestAnimationFrame(animate);
+      if (visible && !document.hidden && clouds.length) frame = requestAnimationFrame(animate);
     }
 
     const theme = () => ["dark", "teal", "azure", "crimson", "aurora"].filter((name) => root.classList.contains(name)).join();
