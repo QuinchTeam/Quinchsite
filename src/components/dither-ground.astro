@@ -1,0 +1,287 @@
+<div class="dither-ground" aria-hidden="true">
+  <canvas data-dither-ground></canvas>
+</div>
+
+<style>
+  .dither-ground {
+    width: 100%;
+    height: clamp(300px, 48svh, 520px);
+    overflow: hidden;
+    pointer-events: none;
+    mask-image: linear-gradient(to bottom, transparent, black 48%);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+  }
+</style>
+
+<script>
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-dither-ground]");
+  const context = canvas?.getContext("2d");
+
+  if (canvas && context) {
+    const root = document.documentElement;
+    const scene = document.createElement("canvas");
+    const p = scene.getContext("2d", { willReadFrequently: true })!;
+    const cloudLayer = document.createElement("canvas");
+    const cloudContext = cloudLayer.getContext("2d")!;
+    const cloudSprite = document.createElement("canvas");
+    const cloudSpriteContext = cloudSprite.getContext("2d")!;
+    const noise = (x: number, y: number) => {
+      const value = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+      return value - Math.floor(value);
+    };
+    const smoothNoise = (x: number, y: number) => {
+      const ix = Math.floor(x);
+      const iy = Math.floor(y);
+      const fx = x - ix;
+      const fy = y - iy;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const top = noise(ix, iy) * (1 - sx) + noise(ix + 1, iy) * sx;
+      const bottom = noise(ix, iy + 1) * (1 - sx) + noise(ix + 1, iy + 1) * sx;
+      return top * (1 - sy) + bottom * sy;
+    };
+    const rgb = (hex: string) =>
+      [1, 3, 5].map((offset) => Number.parseInt(hex.trim().slice(offset, offset + 2), 16));
+    const mix = (a: number[], b: number[], amount: number) =>
+      a.map((value, index) => Math.round(value + (b[index] - value) * amount));
+    const css = (color: number[]) => `rgb(${color.join(",")})`;
+    let dark = false;
+    let cloudOffset = 0;
+    let previousTime = 0;
+    let frame = 0;
+    let visible = false;
+
+    function drawClouds(width: number, height: number, background: number[], sky: number[]) {
+      cloudLayer.width = width;
+      cloudLayer.height = height;
+      cloudContext.clearRect(0, 0, width, height);
+      if (!dark) return;
+      const count = Math.max(5, Math.floor(width / 220));
+      for (let index = 0; index < count; index++) {
+        const seed = index + 67;
+        const cloudWidth = 210 + noise(seed, 1) * 210;
+        const cloudHeight = cloudWidth * (0.2 + noise(seed, 2) * 0.28);
+        cloudSprite.width = Math.ceil(cloudWidth);
+        cloudSprite.height = Math.ceil(cloudHeight);
+        cloudSpriteContext.clearRect(0, 0, cloudSprite.width, cloudSprite.height);
+        const baseX = (index / count) * width;
+        const x = ((baseX + cloudOffset * (0.3 + noise(seed, 3)) + cloudWidth) % (width + cloudWidth)) - cloudWidth;
+        const y = height * (0.16 + noise(seed, 4) * 0.26);
+        const lobes = 4 + Math.floor(noise(seed, 5) * 4);
+        const lobeShapes = Array.from({ length: lobes }, (_, lobe) => {
+          const position = lobe / (lobes - 1);
+          return {
+            x: 0.2 + position * 0.6 + (noise(seed + lobe, 6) - 0.5) * 0.06,
+            y: 0.62 - Math.sin(position * Math.PI) * (0.15 + noise(seed + lobe, 7) * 0.16),
+            rx: 0.12 + noise(seed + lobe, 8) * 0.07,
+            ry: 0.2 + noise(seed + lobe, 9) * 0.1,
+          };
+        });
+        for (let py = 0; py < cloudSprite.height; py += 3) {
+          for (let px = 0; px < cloudSprite.width; px += 3) {
+            const nx = px / cloudSprite.width;
+            const ny = py / cloudSprite.height;
+            let shape = 1 - ((nx - 0.5) / 0.43) ** 2 - ((ny - 0.72) / 0.18) ** 2;
+            let lighting = 0;
+            for (const lobe of lobeShapes) {
+              const dx = (nx - lobe.x) / lobe.rx;
+              const dy = (ny - lobe.y) / lobe.ry;
+              const surface = 1 - dx * dx - dy * dy;
+              if (surface > shape) {
+                shape = surface;
+                lighting = -dx * 0.12 - dy * 0.24;
+              }
+            }
+            shape += (noise(px + seed, py) - 0.5) * 0.035;
+            if (shape <= 0) continue;
+            const edge = Math.min(1, shape * 5);
+            const undersideStart = 0.57 + Math.sin(nx * 14 + seed) * 0.045;
+            const underside = Math.max(0, Math.min(1, (ny - undersideStart) / 0.36));
+            const fade = (1 - underside) ** 1.5;
+            cloudSpriteContext.fillStyle = css(mix(background, sky, 0.3));
+            cloudSpriteContext.globalAlpha = edge * Math.sqrt(fade) * 0.45;
+            cloudSpriteContext.fillRect(px, py, 3, 3);
+            if (noise(px + seed, py + 13) > edge * fade) continue;
+            const billow = Math.sin(nx * 13 + seed) * Math.sin(ny * 10) * 0.08;
+            const illumination = 0.2 + Math.sqrt(shape) * 0.5 + lighting + billow - ny * 0.1;
+            const tone = Math.max(0, Math.min(1,
+              Math.round((illumination + (noise(px, py) - 0.5) * 0.12) * 9) / 9));
+            cloudSpriteContext.fillStyle = css(mix(mix(background, sky, 0.28), mix(background, sky, 0.88), tone));
+            cloudSpriteContext.globalAlpha = edge * Math.sqrt(fade) * 0.8;
+            cloudSpriteContext.fillRect(px, py, 1, 1);
+          }
+        }
+        cloudSpriteContext.globalAlpha = 1;
+        cloudContext.drawImage(cloudSprite, Math.round(x), Math.round(y));
+      }
+      cloudContext.globalAlpha = 1;
+    }
+
+    function render() {
+      if (!canvas || !context) return;
+      const bounds = canvas.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) return;
+      const width = Math.max(1, Math.round(bounds.width));
+      const height = Math.max(1, Math.round(bounds.height));
+      canvas.width = scene.width = width;
+      canvas.height = scene.height = height;
+      const styles = getComputedStyle(root);
+      const background = rgb(styles.getPropertyValue("--background"));
+      const primary = rgb(styles.getPropertyValue("--primary"));
+      const foreground = rgb(styles.getPropertyValue("--foreground"));
+      dark = root.classList.contains("dark");
+      const colored = ["teal", "azure", "crimson", "aurora"].some((theme) => root.classList.contains(theme));
+      const sky = colored ? foreground : rgb(dark ? "#526885" : "#82b8dc");
+      const light = colored ? primary : rgb(dark ? "#eed5a0" : "#f9edca");
+      const ink = colored ? primary : rgb("#172735");
+      const horizon = height * 0.83;
+      const atmosphere = p.createImageData(width, height);
+      for (let y = 0; y < height; y++) {
+        const altitude = y / height;
+        const haze = Math.max(0, 1 - Math.abs(altitude - 0.75) / 0.75);
+        for (let x = 0; x < width; x++) {
+          const grain = (noise(x, y) - 0.5) * 0.055;
+          const amount = Math.max(0, Math.min(1,
+            haze * (dark ? 0.3 : 0.38) + grain));
+          const index = (y * width + x) * 4;
+          for (let channel = 0; channel < 3; channel++) {
+            atmosphere.data[index + channel] = background[channel]
+              + (sky[channel] - background[channel]) * amount;
+          }
+          atmosphere.data[index + 3] = 255;
+        }
+      }
+      p.putImageData(atmosphere, 0, 0);
+
+      drawClouds(width, height, background, sky);
+      p.drawImage(cloudLayer, 0, 0);
+
+      if (dark) {
+        for (let index = 0; index < Math.max(35, width / 13); index++) {
+          const seed = index + 913;
+          const x = Math.floor(noise(seed, 1) * width);
+          const y = Math.floor(noise(seed, 2) * height * 0.6);
+          const sparkle = noise(seed, 3) > 0.88;
+          p.globalAlpha = 0.22 + noise(seed, 4) * 0.3;
+          p.fillStyle = css(mix(background, foreground, 0.82));
+          p.fillRect(x, y, sparkle ? 2 : 1, 1);
+        }
+        p.globalAlpha = 1;
+      }
+
+      // A fixed world keeps tower proportions intact on narrow screens.
+      const scale = height / 160;
+      const worldWidth = Math.max(720, width / scale);
+      p.save();
+      p.translate((width - worldWidth * scale) / 2, 0);
+      p.scale(scale, scale);
+      const base = horizon / scale;
+      p.fillStyle = css(mix(background, dark ? sky : ink, dark ? 0.18 : 0.12));
+      p.beginPath();
+      p.moveTo(0, 310);
+      for (let x = 0; x <= worldWidth + 4; x += 2) {
+        const ridge = base - 12 - Math.abs(Math.sin(x * 0.013 + 0.8) * 18)
+          - Math.abs(Math.sin(x * 0.031 + 2.1) * 7)
+          + (noise(x, 73) - 0.5) * 5;
+        p.lineTo(x, ridge);
+      }
+      p.lineTo(worldWidth + 4, 310);
+      p.closePath();
+      p.fill();
+      for (let layer = 0; layer < 2; layer++) {
+        const step = (i: number) => i < worldWidth * 0.34 ? 25 : 32;
+        let x = 0;
+        for (let i = 0; x < worldWidth; i++) {
+          const seed = i + layer * 71;
+          x += step(i);
+          const buildingX = x + noise(seed, 3) * (i < worldWidth * 0.34 ? 7 : 11);
+          const w = 13 + Math.floor(noise(seed, 4) * 15);
+          const h = 28 + noise(seed, 5) ** 1.5 * (layer ? 114 : 72);
+          const top = Math.floor(base - h);
+          p.fillStyle = css(mix(background, dark ? sky : ink, layer ? 0.32 : 0.2));
+          p.fillRect(buildingX, top, w, h);
+          p.fillStyle = css(mix(background, dark ? sky : ink, layer ? 0.22 : 0.15));
+          p.fillRect(buildingX + w - 5, top, 5, h);
+          p.fillRect(buildingX + 3, top - 3, w - 6, 3);
+          if (h > 100) p.fillRect(buildingX + w / 2, top - 12, 0.7, 9);
+          for (let y = top + 4; y < base; y += 4) {
+            for (let wx = buildingX + 3; wx < buildingX + w - 3; wx += 3) {
+              const lit = noise(wx + seed, y);
+              if (lit < (layer ? 0.57 : 0.77)) continue;
+              p.fillStyle = css(mix(background, light, (layer ? 0.48 : 0.23) + lit * 0.34));
+              p.fillRect(wx, y, 1, noise(wx, y + 7) > 0.8 ? 2 : 1);
+            }
+          }
+          if (layer && i % 7 === 2) {
+            p.fillStyle = css(mix(background, light, 0.5));
+            p.fillRect(buildingX + 2, top + 1, w - 7, 0.7);
+          }
+        }
+      }
+      // Overlapping tree canopies hide the tower bases like the reference skyline.
+      for (let layer = 0; layer < 3; layer++) {
+        p.fillStyle = css(mix(background, ink, dark ? 0.48 - layer * 0.17 : 0.5 + layer * 0.16));
+        p.beginPath();
+        p.moveTo(0, 310);
+        for (let x = 0; x <= worldWidth + 4; x += 2) {
+          const ridge = base - 4 + layer * 13 + Math.sin(x * 0.025 + layer) * 5;
+          const canopy = Math.sin(x * 0.15 + layer * 7) * 2 + noise(x, layer + 90) * 5;
+          p.lineTo(x, ridge - canopy);
+        }
+        p.lineTo(worldWidth + 4, 310);
+        p.closePath();
+        p.fill();
+      }
+      p.restore();
+
+      // Ordered quantization makes gradients and silhouettes share the sky's pixel texture.
+      const pixels = p.getImageData(0, 0, width, height);
+      const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const index = (y * width + x) * 4;
+          const threshold = (bayer[(y % 4) * 4 + x % 4] + 0.5) / 16;
+          for (let channel = 0; channel < 3; channel++) {
+            const value = pixels.data[index + channel] / 12;
+            pixels.data[index + channel] = Math.min(255, (Math.floor(value) + (value % 1 > threshold ? 1 : 0)) * 12);
+          }
+        }
+      }
+      context.putImageData(pixels, 0, 0);
+    }
+
+    function animate(time: number) {
+      frame = 0;
+      if (!visible || document.hidden || !dark) return;
+      if (previousTime) cloudOffset = (cloudOffset + Math.min(time - previousTime, 50) * 0.008) % 2000;
+      previousTime = time;
+      render();
+      frame = requestAnimationFrame(animate);
+    }
+
+    function updateAnimation() {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      previousTime = 0;
+      if (visible && !document.hidden && dark) frame = requestAnimationFrame(animate);
+      else render();
+    }
+
+    new ResizeObserver(render).observe(canvas);
+    new MutationObserver(render).observe(root, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      updateAnimation();
+    }).observe(canvas);
+    document.addEventListener("visibilitychange", updateAnimation);
+    render();
+  }
+</script>

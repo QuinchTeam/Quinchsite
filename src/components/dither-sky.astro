@@ -1,0 +1,285 @@
+<div class="dither-sky" aria-hidden="true">
+  <canvas data-dither-sky></canvas>
+</div>
+
+<style>
+  .dither-sky {
+    width: 100%;
+    height: clamp(340px, 50svh, 540px);
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    mask-image: linear-gradient(to bottom, #000 65%, transparent 100%);
+  }
+</style>
+
+<script>
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-dither-sky]");
+  const context = canvas?.getContext("2d", { alpha: false });
+
+  if (canvas && context) {
+    const root = document.documentElement;
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+    const noise = (x: number, y: number) => {
+      const value = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+      return value - Math.floor(value);
+    };
+    const rgb = (hex: string) => {
+      const value = hex.trim().slice(1);
+      return [0, 2, 4].map((offset) => Number.parseInt(value.slice(offset, offset + 2), 16));
+    };
+    const mix = (a: number[], b: number[], amount: number) =>
+      `rgb(${a.map((value, index) => Math.round(value + (b[index] - value) * amount)).join(",")})`;
+    const layer = document.createElement("canvas");
+    const layerContext = layer.getContext("2d")!;
+    const clouds: { image: HTMLCanvasElement; cover: HTMLCanvasElement; x: number; y: number; speed: number; depth: number; opacity: number }[] = [];
+    let width = 0;
+    let height = 0;
+    let dark = false;
+    let foreground = "";
+    let visible = false;
+    let frame = 0;
+    let lastTime = 0;
+    let elapsed = 0;
+    let celestialY = 0;
+    let celestialRadius = 0;
+    let nextComet = 4 + Math.random() * 5;
+    const comet = { start: -Infinity, x: 0, y: 0, length: 80 };
+    const cloudy = Math.random() < 0.5;
+    const cloudSeed = Math.random() * 1000;
+
+    function rebuild() {
+      if (!canvas || !context) return;
+      const bounds = canvas.getBoundingClientRect();
+      width = Math.max(1, Math.round(bounds.width));
+      height = Math.max(1, Math.round(bounds.height));
+      canvas.width = layer.width = width;
+      canvas.height = layer.height = height;
+      dark = root.classList.contains("dark");
+      const colored = ["teal", "azure", "crimson", "aurora"].some((theme) => root.classList.contains(theme));
+      const styles = getComputedStyle(root);
+      const background = rgb(styles.getPropertyValue("--background"));
+      const primary = rgb(styles.getPropertyValue("--primary"));
+      const ink = rgb(styles.getPropertyValue("--foreground"));
+      const sky = colored ? ink : rgb(dark ? "#233552" : "#82b8dc");
+      const cloud = colored ? primary : rgb(dark ? "#c3d2e8" : "#ffffff");
+      const shadow = colored ? ink : rgb(dark ? "#283a50" : "#7998af");
+      foreground = colored ? mix(background, primary, 0.85) : dark ? "#e7ebff" : "#fff4c2";
+
+      layerContext.fillStyle = styles.getPropertyValue("--background");
+      layerContext.fillRect(0, 0, width, height);
+      for (let y = 0; y < height; y += 3) {
+        layerContext.fillStyle = mix(background, sky, (1 - y / height) ** 1.4 * (dark ? 0.3 : colored ? 0.28 : 0.72));
+        layerContext.fillRect(0, y, width, 3);
+      }
+
+      const centerX = Math.round(width / 2);
+      const centerY = Math.round(height / 2);
+      celestialY = centerY;
+      const radius = Math.min(74, height * 0.145);
+      celestialRadius = radius;
+      const glowRadius = radius * 2.1;
+      const surfaceLight = colored ? primary : rgb(dark ? "#f0f3fa" : "#fffce1");
+      const surfaceShadow = colored ? ink : rgb(dark ? "#738197" : "#edb54c");
+      const craters = Array.from({ length: 22 }, (_, index) => ({
+        x: (noise(index, 41) - 0.5) * 1.5,
+        y: (noise(index, 42) - 0.5) * 1.5,
+        radius: 0.045 + noise(index, 43) ** 2 * 0.24,
+      }));
+      for (let y = -glowRadius; y <= glowRadius; y += 2) {
+        for (let x = -glowRadius; x <= glowRadius; x += 2) {
+          const distance = Math.hypot(x, y);
+          if (distance > radius) {
+            const halo = Math.max(0, 1 - (distance - radius) / (glowRadius - radius));
+            if (noise(x, y) < halo ** 2 * 0.6) {
+              layerContext.globalAlpha = halo ** 2 * (dark ? 0.28 : 0.48);
+              layerContext.fillStyle = colored ? mix(background, primary, 0.85) : dark ? "#c4dcff" : "#ffdc73";
+              layerContext.fillRect(Math.round(centerX + x), Math.round(centerY + y), 2, 2);
+              layerContext.globalAlpha = 1;
+            }
+            continue;
+          }
+          const nx = x / radius;
+          const ny = y / radius;
+          const sphere = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+          let shade = 0.3 + sphere * 0.62 - nx * 0.12 - ny * 0.12;
+          if (dark) {
+            for (const crater of craters) {
+              const craterDistance = Math.hypot(nx - crater.x, ny - crater.y) / crater.radius;
+              if (craterDistance < 1) shade -= (1 - craterDistance) * 0.38;
+              else if (craterDistance < 1.14) shade += 0.1;
+            }
+            shade += noise(Math.floor(x / 5), Math.floor(y / 5)) * 0.14 - 0.07;
+          } else {
+            shade += Math.sin(nx * 15 + Math.sin(ny * 11)) * 0.035;
+            shade += noise(x, y) * 0.12;
+          }
+          const tone = Math.max(0, Math.min(1, Math.round((shade + (noise(x, y) - 0.5) * 0.12) * 9) / 9));
+          layerContext.fillStyle = mix(surfaceShadow, surfaceLight, tone);
+          if (distance < radius - 2 || noise(x, y) > 0.35) layerContext.fillRect(Math.round(centerX + x), Math.round(centerY + y), 2, 2);
+        }
+      }
+
+      clouds.length = 0;
+      const count = cloudy ? (width < 600 ? 8 : 13) : (width < 600 ? 3 : 5);
+      for (let index = 0; index < count; index++) {
+        const sprite = document.createElement("canvas");
+        const seed = index + cloudSeed;
+        const depth = noise(seed, 17);
+        sprite.width = Math.round(200 + depth * 210 + noise(seed, 3) * 140);
+        sprite.height = Math.round(sprite.width * (0.2 + noise(seed, 4) * 0.28));
+        const cloudY = ((index % 3 + noise(seed, 9)) / 3) * (height - sprite.height * 0.7) - sprite.height * 0.1;
+        const cover = document.createElement("canvas");
+        cover.width = sprite.width;
+        cover.height = sprite.height;
+        const coverContext = cover.getContext("2d")!;
+        const lobeCount = 4 + Math.floor(noise(seed, 6) * 4);
+        const lobes = Array.from({ length: lobeCount }, (_, lobe) => {
+          const position = lobe / (lobeCount - 1);
+          return {
+            x: 0.2 + position * 0.6 + (noise(seed + lobe, 7) - 0.5) * 0.06,
+            y: 0.62 - Math.sin(position * Math.PI) * (0.15 + noise(seed + lobe, 8) * 0.16),
+            rx: 0.12 + noise(seed + lobe, 10) * 0.07,
+            ry: 0.2 + noise(seed + lobe, 11) * 0.1,
+          };
+        });
+        const tones = Array.from({ length: 12 }, (_, tone) => mix(shadow, cloud, tone / 11));
+        const cloudContext = sprite.getContext("2d")!;
+        for (let y = 0; y < sprite.height; y += 3) {
+          for (let x = 0; x < sprite.width; x += 3) {
+            const nx = x / sprite.width;
+            const ny = y / sprite.height;
+            let shape = 1 - ((nx - 0.5) / 0.43) ** 2 - ((ny - 0.72) / 0.18) ** 2;
+            let lighting = 0;
+            for (const lobe of lobes) {
+              const dx = (nx - lobe.x) / lobe.rx;
+              const dy = (ny - lobe.y) / lobe.ry;
+              const surface = 1 - dx * dx - dy * dy;
+              if (surface > shape) {
+                shape = surface;
+                lighting = -dx * 0.12 - dy * 0.24;
+              }
+            }
+            shape += (noise(x + seed, y) - 0.5) * 0.035;
+            if (shape <= 0) continue;
+            const edge = Math.min(1, shape * 5);
+            const undersideStart = 0.57 + Math.sin(nx * 14 + seed) * 0.045;
+            const underside = Math.max(0, Math.min(1, (ny - undersideStart) / 0.36));
+            const fade = (1 - underside) ** 1.5;
+            const skyHeight = Math.max(0, Math.min(1, (cloudY + y) / height));
+            coverContext.fillStyle = mix(background, sky, (1 - skyHeight) ** 1.4 * (dark ? 0.3 : colored ? 0.28 : 0.72));
+            coverContext.globalAlpha = edge * Math.sqrt(fade) * (depth > 0.55 ? 1 : 0.4 + depth);
+            coverContext.fillRect(x, y, 3, 3);
+            if (noise(x + seed, y + 13) > edge * fade) continue;
+            const billow = Math.sin(nx * 13 + seed) * Math.sin(ny * 10) * 0.08;
+            const illumination = 0.2 + Math.sqrt(shape) * 0.5 + lighting + billow - ny * 0.1;
+            const shade = illumination * 11 + noise(x, y) * 0.65;
+            cloudContext.fillStyle = tones[Math.max(0, Math.min(11, Math.floor(shade)))];
+            cloudContext.globalAlpha = edge * Math.sqrt(fade) * (0.7 + noise(x + seed, y + 21) * 0.3);
+            cloudContext.fillRect(x, y, 1, 1);
+          }
+        }
+        clouds.push({
+          image: sprite,
+          cover,
+          x: (index / count) * (width + 300) - 180,
+          y: cloudY,
+          speed: 0.8 + depth * 5 + noise(seed, 5) * 4,
+          depth,
+          opacity: (dark ? 0.3 : 0.45) + depth * (dark ? 0.5 : 0.5),
+        });
+      }
+      clouds.sort((a, b) => a.depth - b.depth);
+      draw();
+    }
+
+    function draw() {
+      if (!context) return;
+      context.drawImage(layer, 0, 0);
+      if (dark) {
+        context.fillStyle = foreground;
+        for (let index = 0; index < Math.max(35, width / 13); index++) {
+          const seed = index + cloudSeed;
+          const x = Math.floor(noise(seed, 1) * width);
+          const y = Math.floor(noise(seed, 2) * height * 0.88);
+          if (Math.hypot(x - width / 2, y - celestialY) < celestialRadius + 8) continue;
+          const period = 12 + noise(seed, 24) * 24;
+          const phase = (elapsed / period + noise(seed, 25)) % 1;
+          const sparkle = Math.max(0, 1 - Math.abs(phase - 0.5) / 0.09) ** 2;
+          context.globalAlpha = 0.15 + noise(seed, 26) * 0.18 + sparkle * 0.22;
+          context.fillRect(x, y, index % 13 === 0 ? 2 : 1, 1);
+        }
+        context.globalAlpha = 1;
+      }
+      for (const cloud of clouds) {
+        const wrap = width + cloud.image.width;
+        const x = ((cloud.x + elapsed * cloud.speed + cloud.image.width) % wrap) - cloud.image.width;
+        context.save();
+        context.beginPath();
+        context.arc(width / 2, celestialY, celestialRadius * 2.1, 0, Math.PI * 2);
+        context.clip();
+        context.globalAlpha = 1;
+        context.drawImage(cloud.cover, Math.round(x), Math.round(cloud.y));
+        context.restore();
+        context.globalAlpha = cloud.opacity;
+        context.drawImage(cloud.image, Math.round(x), Math.round(cloud.y));
+      }
+      context.globalAlpha = 1;
+      if (dark && !reducedMotion.matches) {
+        if (elapsed >= nextComet) {
+          comet.start = elapsed;
+          comet.x = width * (0.08 + Math.random() * 0.55);
+          comet.y = height * (0.12 + Math.random() * 0.22);
+          comet.length = 60 + Math.random() * 60;
+          nextComet = elapsed + 14 + Math.random() * 18;
+        }
+        const progress = (elapsed - comet.start) / 1.8;
+        if (progress >= 0 && progress < 1) {
+          const headX = comet.x + progress * Math.min(width * 0.5, 330);
+          const headY = comet.y + progress * height * 0.25;
+          context.fillStyle = foreground;
+          for (let step = 0; step < comet.length; step += 3) {
+            context.globalAlpha = Math.sin(progress * Math.PI) * (1 - step / comet.length) ** 2;
+            context.fillRect(Math.round(headX - step), Math.round(headY - step * 0.4), 2, 2);
+          }
+          context.globalAlpha = 1;
+        }
+      }
+    }
+
+    function tick(time: number) {
+      frame = 0;
+      if (!visible || document.hidden || reducedMotion.matches) return;
+      if (time - lastTime >= 1000 / 15) {
+        if (lastTime) elapsed += Math.min((time - lastTime) / 1000, 0.2);
+        lastTime = time;
+        draw();
+      }
+      frame = requestAnimationFrame(tick);
+    }
+
+    function updateAnimation() {
+      cancelAnimationFrame(frame);
+      lastTime = 0;
+      frame = 0;
+      if (visible && !document.hidden && !reducedMotion.matches) frame = requestAnimationFrame(tick);
+      else draw();
+    }
+
+    new ResizeObserver(rebuild).observe(canvas);
+    new MutationObserver(rebuild).observe(root, { attributes: true, attributeFilter: ["class"] });
+    new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      updateAnimation();
+    }).observe(canvas);
+    reducedMotion.addEventListener("change", updateAnimation);
+    document.addEventListener("visibilitychange", updateAnimation);
+    rebuild();
+  }
+</script>

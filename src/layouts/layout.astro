@@ -1,5 +1,7 @@
 ---
 import NavBar from "@/components/navbar.astro";
+import DitherSky from "@/components/dither-sky.astro";
+import DitherGround from "@/components/dither-ground.astro";
 import "@/styles/global.css";
 
 interface Props {
@@ -158,12 +160,14 @@ const structuredData = {
     </script>
   </head>
   <body>
-    <NavBar />
+    <NavBar floating />
+    <DitherSky />
     <main
-      class="flex min-h-dvh justify-center overflow-x-hidden border-x border-b border-border"
+      class="flex min-h-dvh justify-center overflow-x-hidden"
     >
       <slot />
     </main>
+    <DitherGround />
     <script is:inline>
       (function () {
         var key = "scroll:" + location.pathname;
