@@ -36,12 +36,15 @@
     };
     const mix = (a: number[], b: number[], amount: number) =>
       `rgb(${a.map((value, index) => Math.round(value + (b[index] - value) * amount)).join(",")})`;
+    const blend = (a: number[], b: number[], amount: number) =>
+      a.map((value, index) => Math.round(value + (b[index] - value) * amount));
     const layer = document.createElement("canvas");
     const layerContext = layer.getContext("2d")!;
     const clouds: { image: HTMLCanvasElement; cover: HTMLCanvasElement; x: number; y: number; speed: number; depth: number; opacity: number }[] = [];
     let width = 0;
     let height = 0;
     let dark = false;
+    let skyStrength = 0.72;
     let foreground = "";
     let visible = false;
     let frame = 0;
@@ -67,15 +70,17 @@
       const background = rgb(styles.getPropertyValue("--background"));
       const primary = rgb(styles.getPropertyValue("--primary"));
       const ink = rgb(styles.getPropertyValue("--foreground"));
-      const sky = colored ? ink : rgb(dark ? "#233552" : "#82b8dc");
-      const cloud = colored ? primary : rgb(dark ? "#c3d2e8" : "#ffffff");
-      const shadow = colored ? ink : rgb(dark ? "#283a50" : "#7998af");
+      // Light themed skies lean on the primary hue so the gradient stays visible on pale backgrounds.
+      const sky = colored ? (dark ? ink : blend(ink, primary, 0.6)) : rgb(dark ? "#233552" : "#82b8dc");
+      skyStrength = dark ? 0.3 : colored ? 0.5 : 0.72;
+      const cloud = colored ? primary : rgb(dark ? "#c3d2e8" : "#b4bac2");
+      const shadow = colored ? ink : rgb(dark ? "#283a50" : "#6b737d");
       foreground = colored ? mix(background, primary, 0.85) : dark ? "#e7ebff" : "#fff4c2";
 
       layerContext.fillStyle = styles.getPropertyValue("--background");
       layerContext.fillRect(0, 0, width, height);
       for (let y = 0; y < height; y += 3) {
-        layerContext.fillStyle = mix(background, sky, (1 - y / height) ** 1.4 * (dark ? 0.3 : colored ? 0.28 : 0.72));
+        layerContext.fillStyle = mix(background, sky, (1 - y / height) ** 1.4 * skyStrength);
         layerContext.fillRect(0, y, width, 3);
       }
 
@@ -85,8 +90,9 @@
       const radius = Math.min(74, height * 0.145);
       celestialRadius = radius;
       const glowRadius = radius * 2.1;
-      const surfaceLight = colored ? primary : rgb(dark ? "#f0f3fa" : "#fffce1");
-      const surfaceShadow = colored ? ink : rgb(dark ? "#738197" : "#edb54c");
+      // Themed moon/sun span a lighter tint to a deeper shade of the primary, so shading reads.
+      const surfaceLight = colored ? blend(primary, rgb("#ffffff"), dark ? 0.6 : 0.45) : rgb(dark ? "#f0f3fa" : "#fffce1");
+      const surfaceShadow = colored ? (dark ? blend(primary, background, 0.5) : blend(primary, ink, 0.55)) : rgb(dark ? "#738197" : "#edb54c");
       const craters = Array.from({ length: 22 }, (_, index) => ({
         x: (noise(index, 41) - 0.5) * 1.5,
         y: (noise(index, 42) - 0.5) * 1.5,
@@ -117,8 +123,10 @@
             }
             shade += noise(Math.floor(x / 5), Math.floor(y / 5)) * 0.14 - 0.07;
           } else {
-            shade += Math.sin(nx * 15 + Math.sin(ny * 11)) * 0.035;
-            shade += noise(x, y) * 0.12;
+            // Sun surface: swirling bands plus coarse granulation cells.
+            shade += Math.sin(nx * 15 + Math.sin(ny * 11) * 2) * 0.07;
+            shade += noise(Math.floor(x / 6), Math.floor(y / 6)) * 0.2 - 0.1;
+            shade += noise(x, y) * 0.08;
           }
           const tone = Math.max(0, Math.min(1, Math.round((shade + (noise(x, y) - 0.5) * 0.12) * 9) / 9));
           layerContext.fillStyle = mix(surfaceShadow, surfaceLight, tone);
@@ -173,7 +181,7 @@
             const underside = Math.max(0, Math.min(1, (ny - undersideStart) / 0.36));
             const fade = (1 - underside) ** 1.5;
             const skyHeight = Math.max(0, Math.min(1, (cloudY + y) / height));
-            coverContext.fillStyle = mix(background, sky, (1 - skyHeight) ** 1.4 * (dark ? 0.3 : colored ? 0.28 : 0.72));
+            coverContext.fillStyle = mix(background, sky, (1 - skyHeight) ** 1.4 * skyStrength);
             coverContext.globalAlpha = edge * Math.sqrt(fade) * (depth > 0.55 ? 1 : 0.4 + depth);
             coverContext.fillRect(x, y, 3, 3);
             if (noise(x + seed, y + 13) > edge * fade) continue;
@@ -192,7 +200,7 @@
           y: cloudY,
           speed: 0.8 + depth * 5 + noise(seed, 5) * 4,
           depth,
-          opacity: (dark ? 0.3 : 0.45) + depth * (dark ? 0.5 : 0.5),
+          opacity: dark ? 0.3 + depth * 0.5 : colored ? 0.45 + depth * 0.5 : 1,
         });
       }
       clouds.sort((a, b) => a.depth - b.depth);
