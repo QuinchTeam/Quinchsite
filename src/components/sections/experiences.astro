@@ -3,8 +3,16 @@ import { Image } from "astro:assets";
 import appquantLogo from "@/assets/companies/appquant.webp";
 import kynatechLogo from "@/assets/companies/kynatech.webp";
 import pioneerLogo from "@/assets/companies/pioneer-dev-ai.webp";
+import thorneLogo from "@/assets/companies/thorne-consulting.webp";
 import SectionTitle from "@/components/section-title.astro";
 import Badge from "@/components/ui/badge.astro";
+import Link from "@/components/ui/link.astro";
+
+interface Props {
+  limit?: number;
+}
+
+const { limit } = Astro.props;
 
 interface Experience {
   title: string;
@@ -20,6 +28,31 @@ interface Experience {
 }
 
 const experiences: Experience[] = [
+  {
+    title: "Full-Stack Engineer",
+    period: "September 2026 - Present",
+    company: "Thorne Consulting",
+    companyLink: "https://thorneconsultingco.com/",
+    companyLogo: thorneLogo,
+    employmentType: "Full-time",
+    location: "Houston, Texas, United States",
+    workMode: "Remote",
+    descriptions: [
+      "Working as a Full-Stack Engineer on an AI-powered career and education platform, developing and scaling interactive experiences that help K-12 students explore career paths, build practical skills, and prepare for the workplace. Building with Next.js, Prisma, Mastra, and Inngest, integrating Voice AI and LLM capabilities, with OpenTelemetry and BetterStack for observability and Dokploy for deployment.",
+      "Collaborating closely with developers to discuss technical approaches, explore ideas for new features, and shape product improvements that support students' learning and career readiness.",
+    ],
+    technologies: [
+      "Next.js",
+      "Prisma",
+      "Mastra",
+      "Inngest",
+      "OpenTelemetry",
+      "BetterStack",
+      "Dokploy",
+      "Voice AI",
+      "LLM",
+    ],
+  },
   {
     title: "Full-Stack Engineer",
     period: "March 2026 - Present",
@@ -88,21 +121,22 @@ const experiences: Experience[] = [
     technologies: ["Next.js", "Supabase", "Prisma", "Shadcn"],
   },
 ];
+const visibleExperiences = experiences.slice(0, limit);
 ---
 
 <section class="flex flex-col spacing-md">
-  <SectionTitle text="Experiences" />
+  <SectionTitle text={`Experiences (${experiences.length})`} />
 
   <div class="flex flex-col spacing-lg">
     {
-      experiences.map((experience) => (
+      visibleExperiences.map((experience) => (
         <article class="group flex flex-col spacing-md">
           <div class="flex flex-col spacing-xs lg:flex-row lg:items-center">
             {experience.companyLogo ? (
               <Image
                 width={160}
                 format="webp"
-                quality="mid"
+                quality={100}
                 src={experience.companyLogo}
                 draggable="false"
                 loading="lazy"
@@ -160,4 +194,13 @@ const experiences: Experience[] = [
       ))
     }
   </div>
+  {
+    limit && limit < experiences.length && (
+      <div class="flex justify-center">
+        <Link href="/experiences" variant="dashed" class="w-full animation-normal">
+          View All Experiences
+        </Link>
+      </div>
+    )
+  }
 </section>

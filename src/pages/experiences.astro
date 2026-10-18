@@ -1,0 +1,16 @@
+---
+import Footer from "@/components/footer.astro";
+import Experiences from "@/components/sections/experiences.astro";
+import Skills from "@/components/sections/skills.astro";
+import Layout from "@/layouts/layout.astro";
+
+export const prerender = true;
+---
+
+<Layout title="Experiences | Cyril James - Full-Stack Engineer">
+  <div class="mt-10 flex w-full max-w-4xl flex-col spacing-xl padding-xs">
+    <Experiences />
+    <Skills />
+    <Footer />
+  </div>
+</Layout>

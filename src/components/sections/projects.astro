@@ -4,9 +4,11 @@ import aniquinch from "@/assets/projects/aniquinch-1.webp";
 import huefit from "@/assets/projects/huefit-1.webp";
 import lemonlawmike from "@/assets/projects/lemonlawmike-1.webp";
 import marrylymatch from "@/assets/projects/marrylymatch-1.webp";
+import mythorneai from "@/assets/projects/mythorneai-1.webp";
 import onlyfunds from "@/assets/projects/onlyfunds-1.webp";
 import pasabuy from "@/assets/projects/pasabuy-1.webp";
 import promptwise from "@/assets/projects/promptwise-1.webp";
+import quinchool from "@/assets/projects/quinchool-1.webp";
 import smilecare from "@/assets/projects/smilecare-1.webp";
 import superproxy from "@/assets/projects/superproxy-1.webp";
 import thryve from "@/assets/projects/thryve-1.webp";
@@ -35,6 +37,25 @@ const { limit } = Astro.props;
 
 const projects: Project[] = [
   {
+    title: "MyThorneAI",
+    type: "Company",
+    description:
+      "An AI-powered career and education platform featuring interactive work simulations, Voice AI interview practice, an AI speech coach, and automated job discovery through web scraping.",
+    technologies: [
+      "Next.js",
+      "Prisma",
+      "Mastra",
+      "Inngest",
+      "OpenTelemetry",
+      "BetterStack",
+      "Dokploy",
+      "Voice AI",
+      "LLM",
+    ],
+    images: [mythorneai],
+    websiteLink: "https://mythorneai.com/",
+  },
+  {
     title: "PromptWise",
     type: "Company",
     description:
@@ -49,6 +70,27 @@ const projects: Project[] = [
     ],
     images: [promptwise],
     websiteLink: "https://promptwise.com/",
+  },
+  {
+    title: "Quinchool",
+    type: "Personal",
+    description:
+      "A personal all-in-one toolkit that brings together the tools I use daily for life and work.",
+    technologies: [
+      "Next.js",
+      "NestJS",
+      "FastAPI",
+      "Google Cloud Platform",
+      "NeonDB",
+      "OpenTelemetry",
+      "Sentry",
+      "Crawl4AI",
+      "LLM",
+      "Langfuse",
+    ],
+    images: [quinchool],
+    websiteLink: "https://quinchool.quinchy.dev/",
+    githubLink: "https://github.com/QuinchTeam/Quinchool",
   },
   {
     title: "Superproxy",
@@ -224,10 +266,10 @@ const visibleProjects = publishedProjects.slice(0, limit);
           <div class="lg:w-2/5 lg:shrink-0">
             {project.images?.[0] && (
               <Image
-                widths={[360, 540, 760]}
-                sizes="(min-width: 1040px) 350px, (min-width: 960px) 878px, 93.44vw"
+                widths={[360, 540, 760, 1024, 1280]}
+                sizes="(min-width: 64rem) 352px, (min-width: 56rem) 880px, calc(100vw - 18px)"
                 format="webp"
-                quality="mid"
+                quality={100}
                 src={project.images[0]}
                 draggable="false"
                 loading="lazy"
