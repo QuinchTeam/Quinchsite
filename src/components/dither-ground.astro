@@ -174,7 +174,7 @@
         p.globalAlpha = 1;
       }
 
-      // A fixed world keeps tower proportions intact on narrow screens.
+      // Draw broad, overlapping pixel ridges like a close forest canopy.
       const scale = height / 160;
       const worldWidth = Math.max(720, width / scale);
       p.save();
@@ -193,50 +193,219 @@
       p.lineTo(worldWidth + 4, 310);
       p.closePath();
       p.fill();
-      for (let layer = 0; layer < 2; layer++) {
-        const step = (i: number) => i < worldWidth * 0.34 ? 25 : 32;
-        let x = 0;
+      // Three depth layers: far towers fade into haze, near blocks are darker with brighter windows.
+      const depths = [
+        { step: 18, jitter: 6, width: [8, 10], height: [40, 90], tone: 0.24, side: 0.21, lit: 0.88, glow: 0.12 },
+        { step: 30, jitter: 10, width: [13, 15], height: [28, 114], tone: 0.3, side: 0.21, lit: 0.68, glow: 0.38 },
+        { step: 44, jitter: 14, width: [18, 14], height: [18, 52], tone: 0.17, side: 0.11, lit: 0.6, glow: 0.55 },
+      ];
+      const drawBuildings = (layer: number) => {
+        const d = depths[layer];
+        let x = -d.step * noise(layer, 9);
         for (let i = 0; x < worldWidth; i++) {
           const seed = i + layer * 71;
-          x += step(i);
-          const buildingX = x + noise(seed, 3) * (i < worldWidth * 0.34 ? 7 : 11);
-          const w = 13 + Math.floor(noise(seed, 4) * 15);
-          const h = 28 + noise(seed, 5) ** 1.5 * (layer ? 114 : 72);
-          const top = Math.floor(base - h);
-          p.fillStyle = css(mix(background, dark ? sky : ink, layer ? 0.32 : 0.2));
+          x += d.step;
+          const buildingX = x + noise(seed, 3) * d.jitter;
+          const w = d.width[0] + Math.floor(noise(seed, 4) * d.width[1]);
+          const h = d.height[0] + noise(seed, 5) ** 1.5 * d.height[1];
+          // Only some near blocks appear, rooted behind the front treeline.
+          if (layer === 2 && noise(seed, 7) < 0.35) continue;
+          const bottom = base + (layer === 2 ? 14 + noise(seed, 6) * 6 : 0);
+          const top = Math.floor(bottom - h);
+          p.fillStyle = css(mix(background, dark ? sky : ink, d.tone));
           p.fillRect(buildingX, top, w, h);
-          p.fillStyle = css(mix(background, dark ? sky : ink, layer ? 0.22 : 0.15));
-          p.fillRect(buildingX + w - 5, top, 5, h);
+          p.fillStyle = css(mix(background, dark ? sky : ink, d.side));
+          p.fillRect(buildingX + w - Math.min(5, w / 3), top, Math.min(5, w / 3), h);
           p.fillRect(buildingX + 3, top - 3, w - 6, 3);
           if (h > 100) p.fillRect(buildingX + w / 2, top - 12, 0.7, 9);
-          for (let y = top + 4; y < base; y += 4) {
-            for (let wx = buildingX + 3; wx < buildingX + w - 3; wx += 3) {
-              const lit = noise(wx + seed, y);
-              if (lit < (layer ? 0.57 : 0.77)) continue;
-              p.fillStyle = css(mix(background, light, (layer ? 0.48 : 0.23) + lit * 0.34));
-              p.fillRect(wx, y, 1, noise(wx, y + 7) > 0.8 ? 2 : 1);
+          // Reference-style silhouettes on some towers: stepped setbacks, spires, and lit crowns.
+          const style = layer ? noise(seed, 8) : 0;
+          if (style > 0.55) {
+            const tiers = style > 0.8 ? 2 : 1;
+            for (let t = 1; t <= tiers; t++) {
+              const tierW = w * (1 - t * 0.28);
+              const tierH = 5 + noise(seed, 10 + t) * 8;
+              const tierX = buildingX + (w - tierW) * (noise(seed, 12) > 0.5 ? 0.5 : 0.2);
+              const tierTop = top - tierH * t;
+              p.fillStyle = css(mix(background, dark ? sky : ink, d.tone - 0.02 * t));
+              p.fillRect(tierX, tierTop, tierW, tierH);
+              p.fillStyle = css(mix(background, light, d.glow + 0.1));
+              for (let wy = tierTop + 2; wy < tierTop + tierH; wy += 2) {
+                for (let wx = tierX + 1; wx < tierX + tierW - 1; wx += 2) {
+                  if (noise(wx + seed, wy + t) > 0.6) p.fillRect(wx, wy, 2 / scale, 2 / scale);
+                }
+              }
+              if (t === tiers && style > 0.9) {
+                p.fillStyle = css(mix(background, dark ? sky : ink, d.side));
+                p.fillRect(tierX + tierW / 2, tierTop - 14, 0.7, 14);
+              }
             }
           }
-          if (layer && i % 7 === 2) {
+          // Slanted roofs on a few blocks break up the flat tops.
+          if (layer && style > 0.12 && style < 0.2) {
+            const rise = 4 + noise(seed, 14) * 6;
+            p.fillStyle = css(mix(background, dark ? sky : ink, d.tone));
+            for (let sx = 0; sx < w; sx += 0.5) p.fillRect(buildingX + sx, top - rise * (sx / w), 0.5, rise * (sx / w));
+          }
+          // Red aviation beacon on the tallest towers.
+          if (h > 95 && noise(seed, 15) > 0.4) {
+            p.fillStyle = css(mix(background, colored ? primary : rgb("#e0574f"), 0.7));
+            p.fillRect(buildingX + w / 2, top - (h > 100 ? 13 : 4), 1, 1);
+          }
+          if (layer && style > 0.3 && style < 0.42) {
+            p.fillStyle = css(mix(background, light, d.glow + 0.25));
+            p.fillRect(buildingX + 1, top + 1, w - 2, 0.7);
+            p.fillRect(buildingX + 1, top + 3, w - 2, 0.5);
+          }
+          const tone = d.tone;
+          const px = 2 / scale; // 2 screen pixels per grain cell
+          // Far layer stays flat so it reads as haze; nearer layers get facade grain.
+          for (let y = top; y < (layer ? bottom : top); y += px) {
+            for (let wx = buildingX; wx < buildingX + w; wx += px) {
+              const texture = noise(Math.round(wx / px) + seed * 19, Math.round(y / px) + layer * 31);
+              const shade = ((wx - buildingX) / w) * 0.06;
+              if (texture < 0.6) continue;
+              p.fillStyle = css(mix(background, dark ? sky : ink, tone - shade + (texture > 0.9 ? 0.06 : -0.04)));
+              p.fillRect(wx, y, px, px);
+            }
+          }
+          // Floor slabs every few rows give the towers structure.
+          p.fillStyle = css(mix(background, dark ? sky : ink, tone - 0.07));
+          for (let y = top + 6; y < bottom; y += 6) p.fillRect(buildingX, y, w - 5, 0.5);
+          // Residential towers get pale balcony bands every floor.
+          if (layer && style > 0.42 && style < 0.55) {
+            p.fillStyle = css(mix(background, dark ? sky : ink, tone + 0.1));
+            for (let y = top + 2; y < bottom; y += 3) p.fillRect(buildingX, y, w - 3, 0.5);
+          }
+          // Small, dense windows on a 2-unit grid, occasionally lit in runs like occupied floors.
+          for (let y = top + 3; y < bottom; y += 2) {
+            const floorLit = noise(seed, y * 3) > 0.7 ? 0.2 : 0;
+            for (let wx = buildingX + 2; wx < buildingX + w - 2; wx += 2) {
+              const lit = noise(wx + seed, y) + floorLit;
+              if (lit < d.lit) continue;
+              p.fillStyle = css(mix(background, light, d.glow + Math.min(lit, 1) * 0.3));
+              p.fillRect(wx, y, px, px);
+            }
+          }
+          if (layer === 1 && i % 7 === 2) {
             p.fillStyle = css(mix(background, light, 0.5));
             p.fillRect(buildingX + 2, top + 1, w - 7, 0.7);
           }
         }
-      }
-      // Overlapping tree canopies hide the tower bases like the reference skyline.
-      for (let layer = 0; layer < 3; layer++) {
-        p.fillStyle = css(mix(background, ink, dark ? 0.48 - layer * 0.17 : 0.5 + layer * 0.16));
+      };
+      // Low, rounded tree crowns: a dark silhouette that swallows the building bases.
+      const tint = colored ? foreground : (dark ? sky : ink);
+      const treeTop = (x: number, layer: number) => {
+        const size = layer ? 9 : 6;
+        const cell = Math.floor(x / size);
+        let lift = 0;
+        for (let c = cell - 2; c <= cell + 2; c++) {
+          const cx = (c + noise(c, layer * 7 + 41)) * size;
+          const r = size * (0.7 + noise(c, layer * 7 + 42) * 0.8);
+          const dx = x - cx;
+          if (Math.abs(dx) < r) lift = Math.max(lift, Math.sqrt(r * r - dx * dx) * 0.8);
+        }
+        return base + (layer ? 12 : 1) - lift + Math.sin(x * 0.02 + layer * 3) * 3;
+      };
+      const drawTrees = (layer: number) => {
+        const treeColor = mix(background, tint, layer ? 0.06 : 0.16);
+        p.fillStyle = css(treeColor);
         p.beginPath();
         p.moveTo(0, 310);
-        for (let x = 0; x <= worldWidth + 4; x += 2) {
-          const ridge = base - 4 + layer * 13 + Math.sin(x * 0.025 + layer) * 5;
-          const canopy = Math.sin(x * 0.15 + layer * 7) * 2 + noise(x, layer + 90) * 5;
-          p.lineTo(x, ridge - canopy);
-        }
-        p.lineTo(worldWidth + 4, 310);
+        for (let x = 0; x <= worldWidth + 2; x += 1) p.lineTo(x, treeTop(x, layer));
+        p.lineTo(worldWidth + 2, 310);
         p.closePath();
         p.fill();
+        // Sparse 1px leaf highlights along the crowns only, so the band reads as foliage.
+        p.fillStyle = css(mix(treeColor, tint, 0.12));
+        for (let x = 0; x < worldWidth; x += 1) {
+          const top = treeTop(x, layer);
+          for (let y = Math.ceil(top); y < top + 6; y += 1) {
+            if (noise(x + layer * 53, y) > 0.72) p.fillRect(x, y, 1, 1);
+          }
+        }
+        // A few warm street lights glint through the back treeline.
+        if (!layer) {
+          for (let x = 5; x < worldWidth; x += 9) {
+            if (noise(x, 211) < 0.86) continue;
+            p.fillStyle = css(mix(background, light, 0.45 + noise(x, 212) * 0.3));
+            p.fillRect(x, treeTop(x, 0) + 4 + noise(x, 213) * 5, 1, 1);
+          }
+        }
+      };
+      // Near blocks stand between the two treelines so the foreground has real depth.
+      drawBuildings(0);
+      drawBuildings(1);
+      // Hand-placed Manila landmarks: PBCom Tower, Pacific Plaza twin towers, GT Tower.
+      const body = mix(background, dark ? sky : ink, 0.3);
+      const edge = mix(background, dark ? sky : ink, 0.21);
+      const windows = (x0: number, y0: number, w: number, h: number, salt: number) => {
+        for (let y = y0 + 2; y < y0 + h; y += 2) {
+          for (let x = x0 + 2; x < x0 + w - 2; x += 2) {
+            const lit = noise(x + salt, y);
+            if (lit < 0.62) continue;
+            p.fillStyle = css(mix(background, light, 0.4 + lit * 0.3));
+            p.fillRect(x, y, 2 / scale, 2 / scale);
+          }
+        }
+      };
+      const tower = (x: number, w: number, h: number, salt: number) => {
+        p.fillStyle = css(body);
+        p.fillRect(x, base - h, w, h);
+        p.fillStyle = css(edge);
+        p.fillRect(x + w - 4, base - h, 4, h);
+        windows(x, base - h, w - 4, h, salt);
+      };
+      // PBCom Tower: slim shaft, stepped crown, tall needle spire.
+      const pb = worldWidth * 0.22;
+      tower(pb, 18, 100, 501);
+      p.fillStyle = css(body);
+      p.fillRect(pb + 3, base - 108, 12, 8);
+      p.fillRect(pb + 6, base - 114, 6, 6);
+      p.fillStyle = css(edge);
+      p.fillRect(pb + 8.6, base - 128, 0.8, 14);
+      p.fillStyle = css(mix(background, light, 0.75));
+      p.fillRect(pb + 3, base - 101, 12, 0.6);
+      // Pacific Plaza Towers: twin slabs.
+      const pp = worldWidth * 0.55;
+      for (const [offset, h] of [[0, 92], [22, 98]]) {
+        const x = pp + offset;
+        tower(x, 17, h, 600 + offset);
       }
+      // Rockwell Center cluster: Edades Tower's open-frame crown, Proscenium's curved slabs, Power Plant stack.
+      const rw = worldWidth * 0.38;
+      tower(rw, 15, 96, 800);
+      p.fillStyle = css(edge);
+      p.fillRect(rw, base - 108, 0.8, 12);
+      p.fillRect(rw + 14.2, base - 108, 0.8, 12);
+      p.fillRect(rw, base - 108, 15, 0.8);
+      p.fillStyle = css(mix(background, light, 0.6));
+      for (let fy = base - 105; fy < base - 96; fy += 3) p.fillRect(rw + 1, fy, 13, 0.4);
+      for (const [offset, h, salt] of [[19, 78, 810], [34, 70, 820]]) {
+        tower(rw + offset, 13, h, salt);
+        for (let row = 0; row < 5; row += 0.5) {
+          p.fillStyle = css(body);
+          p.fillRect(rw + offset, base - h - row, 13 * (1 - (row / 5) ** 2), 0.5);
+        }
+      }
+      p.fillStyle = css(edge);
+      p.fillRect(rw - 8, base - 58, 3, 58);
+      p.fillStyle = css(mix(background, light, 0.45));
+      p.fillRect(rw - 8, base - 54, 3, 0.5);
+      p.fillRect(rw - 8, base - 50, 3, 0.5);
+      // GT Tower: broad shaft that tapers into a rounded, slit crown.
+      const gt = worldWidth * 0.8;
+      tower(gt, 22, 104, 700);
+      for (let row = 0; row < 12; row += 0.5) {
+        const half = 11 * Math.sqrt(1 - (row / 12) ** 2);
+        p.fillStyle = css(body);
+        p.fillRect(gt + 11 - half, base - 104 - row, half * 2, 0.5);
+      }
+      p.fillStyle = css(mix(background, light, 0.7));
+      p.fillRect(gt + 10.6, base - 114, 0.8, 9);
+      drawTrees(0);
+      drawBuildings(2);
+      drawTrees(1);
       p.restore();
 
       // Ordered quantization makes gradients and silhouettes share the sky's pixel texture.
