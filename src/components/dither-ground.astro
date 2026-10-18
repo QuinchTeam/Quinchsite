@@ -425,6 +425,69 @@
       }
       p.fillStyle = css(mix(background, light, 0.7));
       p.fillRect(gt + 10.6, base - 114, 0.8, 9);
+      // Mid-skyline block with a rooftop billboard showing a pixel League of Legends client icon.
+      const bb = Math.round(worldWidth * 0.5) - 15;
+      tower(bb, 30, 58, 900);
+      const boardW = 23;
+      const boardH = 25;
+      const boardX = bb + 3;
+      const boardY = base - 58 - 4 - boardH;
+      // Default keeps League's gold and teal; color themes recast the emblem in their own palette.
+      const metal = colored ? primary : rgb("#c89b3c");
+      const water = colored ? foreground : rgb("#1fa3b8");
+      // Faded to sit back with the mid-distance windows instead of popping forward.
+      const swatch = (color: number[]) => css(mix(background, color, dark ? 0.55 : 0.45));
+      if (dark) {
+        p.fillStyle = css(mix(background, water, 0.05));
+        p.fillRect(boardX - 2, boardY - 2, boardW + 4, boardH + 4);
+      }
+      p.fillStyle = css(edge);
+      p.fillRect(boardX + 5, boardY + boardH, 1, 4);
+      p.fillRect(boardX + boardW - 6, boardY + boardH, 1, 4);
+      p.fillRect(boardX, boardY, boardW, boardH);
+      p.fillStyle = css(colored
+        ? mix(background, primary, dark ? 0.06 : 0.12)
+        : mix(background, rgb("#0e1a22"), dark ? 0.6 : 0.4));
+      p.fillRect(boardX + 1, boardY + 1, boardW - 2, boardH - 2);
+      // League emblem: gold L (H light, G gold, D dark) over a gold ring and a teal swirl (T dark, C cyan, L light).
+      const tones: Record<string, string> = {
+        H: swatch(colored ? mix(primary, rgb("#ffffff"), 0.55) : rgb("#f0e6d2")),
+        G: swatch(metal),
+        D: swatch(colored ? mix(primary, rgb("#000000"), 0.45) : rgb("#785a28")),
+        T: swatch(colored ? mix(background, foreground, 0.35) : rgb("#0a3d4f")),
+        C: swatch(water),
+        L: swatch(colored ? mix(foreground, rgb("#ffffff"), 0.5) : rgb("#7fe8f5")),
+      };
+      const icon = [
+        "...HH....H.........",
+        "....HHHH..HHHG.....",
+        "....HGGGH.CCHGG....",
+        "....HGGGD.TTCCGG...",
+        "..H.HGGGD.LCTTCGG..",
+        ".HH.HGGGD.TLLCTCGG.",
+        ".HC.HGGGD.TTCLLCCD.",
+        "HHC.HGGGD.TTTTLLCDD",
+        "HHC.HGGGD.TTTTCLCDD",
+        "HHC.HGGGD.TTTCLLCDD",
+        "HHC.HGGGD.TTCLLTCDD",
+        "HHC.HGGGD.TCLCTTCDD",
+        "HHC.HGGGD.CLLCTTCDD",
+        ".HC.HGGGD.TLLCTCCD.",
+        ".GG.HGGGD.TTCLCCDD.",
+        "..G.HGGGD.TTTTCDD..",
+        "....HGGGD..........",
+        "....HGGGGHHHHHHHH..",
+        "....HGGGGGGGGGGGD..",
+        "....HGGGGGDDDDDD...",
+        "...DDDDDDD.........",
+      ];
+      icon.forEach((row, y) => {
+        for (let x = 0; x < row.length; x++) {
+          if (row[x] === ".") continue;
+          p.fillStyle = tones[row[x]];
+          p.fillRect(boardX + 2 + x, boardY + 2 + y, 1, 1);
+        }
+      });
       drawTrees(0);
       drawBuildings(2);
       drawTrees(1);
