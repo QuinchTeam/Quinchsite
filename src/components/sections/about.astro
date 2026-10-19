@@ -1,35 +1,40 @@
 ---
 import SectionTitle from "@/components/section-title.astro";
-import Badge from "@/components/ui/badge.astro";
 
-const professionalStartDate = new Date(2025, 4);
-const currentDate = new Date();
-const professionalExperienceMonths =
-  (currentDate.getFullYear() - professionalStartDate.getFullYear()) * 12 +
-  currentDate.getMonth() -
-  professionalStartDate.getMonth();
-const professionalExperienceYears =
-  Math.ceil((professionalExperienceMonths / 12) * 2) / 2;
+// Preferred go-to tools, shown as a stack grid for quick scanning.
+const stack = [
+  { role: "Frontend / Full-Stack", name: "Next.js" },
+  { role: "Backend framework", name: "NestJS" },
+  { role: "AI services", name: "FastAPI" },
+  { role: "Static sites", name: "Astro" },
+  { role: "ORM", name: "Prisma" },
+  { role: "Database / Cache", name: "PostgreSQL / Redis" },
+  { role: "Storage / CDN", name: "S3" },
+  { role: "Observability", name: "OpenTelemetry + Sentry" },
+  { role: "Hosting / Infra", name: "Cloudflare / GCP" },
+];
 ---
 
 <article class="flex flex-col spacing-md">
   <SectionTitle text="About" />
 
-  <div class="flex flex-col spacing-xs text-foreground/80">
-    <p>
-      Full Stack Engineer with {professionalExperienceYears} years of professional experience
-      building AI and SaaS products for businesses across different industries. I focus on creating
-      scalable, reliable systems and intuitive user experiences.
-    </p>
-    <p>
-      I can take responsibilities across Frontend, Backend, and DevOps, partnering closely with engineering teams and clients to turn ideas into polished products.
-    </p>
-    <p>
-      Currently strongest with <Badge name="Next.js" />,&nbsp;<Badge name="Astro" />,&nbsp;<Badge
-        name="Prisma"
-      />,&nbsp;<Badge name="PostgreSQL" />,&nbsp;and&nbsp;<Badge name="Cloudflare" />. I also work
-      with <Badge name="NestJS" /> and <Badge name="FastAPI" />, and I am continuing to build depth
-      in both.
-    </p>
+  <p class="text-foreground/80">
+    I'm a Full-Stack Engineer who loves building AI and SaaS products end to end, from frontend and
+    backend to DevOps. I care about scalable, reliable systems and intuitive user experiences, and I
+    thrive in fast-moving startups across different industries.
+  </p>
+
+  <div class="flex flex-col spacing-xs">
+    <h3 class="text-sm text-foreground/60">Current go-to stack</h3>
+    <ul class="grid grid-cols-2 border-t border-l border-dashed border-border sm:grid-cols-3">
+      {
+        stack.map(({ role, name }) => (
+          <li class="flex flex-col border-r border-b border-dashed border-border padding-sm animation-normal last:col-span-2 hover:bg-muted sm:last:col-span-1">
+            <span class="text-xs text-foreground/60">{role}</span>
+            <span class="font-semibold text-primary">{name}</span>
+          </li>
+        ))
+      }
+    </ul>
   </div>
 </article>
