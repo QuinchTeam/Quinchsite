@@ -263,12 +263,12 @@ const visibleProjects = publishedProjects.slice(0, limit);
               ))}
             </div>
           </div>
-          <div class="lg:w-2/5 lg:shrink-0">
+          <div class="lg:flex-1">
             {project.images?.[0] && (
               <div class="dither aspect-project w-full border border-border">
                 <Image
                   widths={[360, 540, 760, 1024, 1280]}
-                  sizes="(min-width: 64rem) 352px, (min-width: 56rem) 880px, calc(100vw - 18px)"
+                  sizes="(min-width: 64rem) 432px, (min-width: 56rem) 880px, calc(100vw - 18px)"
                   format="webp"
                   quality={100}
                   src={project.images[0]}
