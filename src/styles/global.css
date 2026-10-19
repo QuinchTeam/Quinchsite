@@ -110,6 +110,16 @@
   }
 }
 
+/* Dot-matrix panel: one 1px dot per 4px tile, over the element's own background color. */
+@utility dot-grid {
+  background-image: conic-gradient(
+    at 1px 1px,
+    transparent 75%,
+    color-mix(in srgb, var(--foreground) 12%, transparent) 0
+  );
+  background-size: 4px 4px;
+}
+
 @utility outline-offset-xs {
   outline-offset: var(--spacing-xs);
 }
