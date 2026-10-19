@@ -34,7 +34,7 @@ const itemClass =
   data-navbar
   aria-label="Main navigation"
   class:list={[
-    "top-4 z-10 mx-auto flex w-[calc(100%-2rem)] max-w-4xl flex-wrap items-center justify-between spacing-xs border border-border bg-background padding-xs sm:w-full",
+    "top-4 z-10 mx-auto flex w-[calc(100%-2rem)] max-w-4xl flex-wrap items-center justify-between spacing-xs border border-border bg-background padding-xs px-(--spacing-md) sm:w-full",
     floating ? "fixed inset-x-0" : "sticky mt-4",
   ]}
 >
@@ -57,7 +57,7 @@ const itemClass =
     <span class="font-semibold">Quinchy</span>
   </a>
 
-  <div class="ml-auto hidden items-center sm:flex">
+  <div class="ml-auto hidden items-center spacing-xs sm:flex">
     {
       pages.map((page) => (
         <Link
