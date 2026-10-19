@@ -358,6 +358,16 @@ body::after {
   }
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-color: var(--foreground);
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='d'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 14 0 0 0 -9'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23d)'/%3E%3C/svg%3E");
+}
+
 /* Respect users who prefer no motion — show the grain, just hold it still. */
 @media (prefers-reduced-motion: reduce) {
   body::after {
