@@ -1,12 +1,29 @@
 ---
 import { Image } from "astro:assets";
 import profilePicture from "@/assets/profile-picture.webp";
+import { experiences } from "@/components/sections/experiences-data";
+import { publishedProjects } from "@/components/sections/projects-data";
 import SectionTitle from "@/components/section-title.astro";
 import Link from "@/components/ui/link.astro";
+
+const professionalStartDate = new Date(2025, 4);
+const currentDate = new Date();
+const professionalExperienceMonths =
+  (currentDate.getFullYear() - professionalStartDate.getFullYear()) * 12 +
+  currentDate.getMonth() -
+  professionalStartDate.getMonth();
+const professionalExperienceYears =
+  Math.ceil((professionalExperienceMonths / 12) * 2) / 2;
+
+const stats = [
+  { value: professionalExperienceYears, label: "years" },
+  { value: experiences.length, label: "industries" },
+  { value: publishedProjects.length, label: "projects" },
+];
 ---
 
 <header class="flex flex-col items-start spacing-lg mt-10">
-  <div class="flex flex-1 items-center spacing-lg">
+  <div class="flex w-full items-center spacing-lg">
     <div class="dither size-35 shrink-0 select-none border">
       <Image
         src={profilePicture}
@@ -77,6 +94,29 @@ import Link from "@/components/ui/link.astro";
         </Link>
       </nav>
     </div>
+
+    <aside
+      class="ml-auto hidden min-w-56 flex-col border border-dashed border-border text-sm lg:flex"
+      aria-label="Career stats and local time"
+    >
+      <dl class="grid grid-cols-3">
+        {
+          stats.map(({ value, label }) => (
+            <div class="flex flex-col border-r border-dashed border-border padding-sm last:border-r-0">
+              <dt class="order-last text-xs text-foreground/60">{label}</dt>
+              <dd class="text-3xl font-semibold text-primary">{value}</dd>
+            </div>
+          ))
+        }
+      </dl>
+      <p class="flex justify-between spacing-xs border-t border-dashed border-border padding-sm text-xs text-foreground/60">
+        <span class="flex items-center spacing-xs" data-status>
+          <span class="status-dot size-2.5 shrink-0" aria-hidden="true"></span>
+          <span data-status-label></span>
+        </span>
+        <span><time data-local-time>--:--</time> UTC+8</span>
+      </p>
+    </aside>
   </div>
 
   <nav class="flex flex-row spacing-xs uppercase lg:hidden" aria-label="Social and Resume links">
@@ -112,3 +152,45 @@ import Link from "@/components/ui/link.astro";
     </Link>
   </nav>
 </header>
+
+<script>
+  // Live Bataan time and availability. One interval for the session; page-load re-fills it after client-side navigation.
+  const format = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", hour: "numeric", minute: "2-digit" });
+  const hours = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", hour: "numeric", hourCycle: "h23" });
+  const tick = () => {
+    const now = new Date();
+    const hour = Number(hours.format(now));
+    // Offline 9 PM-7:59 AM; idle over lunch (12 PM) and 5-7 PM; online the rest of the day.
+    const status = hour >= 21 || hour < 8 ? "Offline" : hour === 12 || (hour >= 17 && hour < 19) ? "Idle" : "Online";
+    for (const clock of document.querySelectorAll("[data-local-time]")) clock.textContent = format.format(now);
+    for (const badge of document.querySelectorAll<HTMLElement>("[data-status]")) {
+      badge.dataset.status = status.toLowerCase();
+      badge.querySelector("[data-status-label]")!.textContent = status;
+    }
+  };
+  document.addEventListener("astro:page-load", tick);
+  setInterval(tick, 30_000);
+</script>
+
+<style>
+  /* Pixel status light: a solid core inside a dithered halo, like the sky's sun and moon glow. */
+  .status-dot {
+    --dot: color-mix(in srgb, var(--foreground) 40%, transparent);
+    background:
+      linear-gradient(var(--dot), var(--dot)) center / 6px 6px no-repeat,
+      repeating-conic-gradient(var(--dot) 0 25%, transparent 0 50%) 0 0 / 2px 2px;
+  }
+  [data-status="online"] .status-dot {
+    --dot: #22c55e;
+  }
+  [data-status="idle"] .status-dot {
+    --dot: #eab308;
+  }
+  /* Color themes light up in their own primary; default keeps green/amber since its primary is plain black/white. */
+  :global(:root:is(.teal, .azure, .crimson, .aurora)) [data-status="online"] .status-dot {
+    --dot: var(--primary);
+  }
+  :global(:root:is(.teal, .azure, .crimson, .aurora)) [data-status="idle"] .status-dot {
+    --dot: color-mix(in srgb, var(--primary) 50%, transparent);
+  }
+</style>
