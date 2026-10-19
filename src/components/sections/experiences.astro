@@ -133,16 +133,18 @@ const visibleExperiences = experiences.slice(0, limit);
         <article class="group flex flex-col spacing-md">
           <div class="flex flex-col spacing-xs lg:flex-row lg:items-center">
             {experience.companyLogo ? (
-              <Image
-                width={160}
-                format="webp"
-                quality={100}
-                src={experience.companyLogo}
-                draggable="false"
-                loading="lazy"
-                class="size-20 select-none border border-border object-cover outline-1 outline-dashed outline-transparent outline-offset-xs animation-normal group-hover:outline-border"
-                alt={`${experience.company} logo`}
-              />
+              <div class="dither size-20 shrink-0 border border-border outline-1 outline-dashed outline-transparent outline-offset-xs animation-normal group-hover:outline-border">
+                <Image
+                  width={160}
+                  format="webp"
+                  quality={100}
+                  src={experience.companyLogo}
+                  draggable="false"
+                  loading="lazy"
+                  class="size-full select-none object-cover"
+                  alt={`${experience.company} logo`}
+                />
+              </div>
             ) : (
               <div class="flex min-h-20 min-w-20 items-center justify-center border border-border bg-muted">
                 <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" class="size-10 text-primary/50"><path fill="currentColor" d="M2 2h14v4h6v16H2zm18 6h-4v2h2v2h-2v2h2v2h-2v2h2v2h2zm-6-4H4v16h2v-2h6v2h2zM6 6h2v2H6zm6 0h-2v2h2zm-6 4h2v2H6zm6 0h-2v2h2zm-6 4h2v2H6zm6 0h-2v2h2z"></path></svg>

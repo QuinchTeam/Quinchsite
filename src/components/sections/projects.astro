@@ -265,17 +265,19 @@ const visibleProjects = publishedProjects.slice(0, limit);
           </div>
           <div class="lg:w-2/5 lg:shrink-0">
             {project.images?.[0] && (
-              <Image
-                widths={[360, 540, 760, 1024, 1280]}
-                sizes="(min-width: 64rem) 352px, (min-width: 56rem) 880px, calc(100vw - 18px)"
-                format="webp"
-                quality={100}
-                src={project.images[0]}
-                draggable="false"
-                loading="lazy"
-                class="aspect-project w-full border border-border object-cover select-none"
-                alt={`${project.title} thumbnail`}
-              />
+              <div class="dither aspect-project w-full border border-border">
+                <Image
+                  widths={[360, 540, 760, 1024, 1280]}
+                  sizes="(min-width: 64rem) 352px, (min-width: 56rem) 880px, calc(100vw - 18px)"
+                  format="webp"
+                  quality={100}
+                  src={project.images[0]}
+                  draggable="false"
+                  loading="lazy"
+                  class="size-full object-cover select-none"
+                  alt={`${project.title} thumbnail`}
+                />
+              </div>
             )}
           </div>
         </div>

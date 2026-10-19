@@ -8,16 +8,18 @@ import SectionTitle from "@/components/section-title.astro";
   <SectionTitle text="Education" />
   <article class="flex flex-col spacing-md">
     <div class="flex flex-col spacing-xs lg:flex-row lg:items-center">
-      <Image
-        width={160}
-        format="webp"
-        quality="mid"
-        src={bpsuLogo}
-        draggable="false"
-        loading="lazy"
-        class="size-20 select-none border border-border object-cover"
-        alt="Bataan Peninsula State University logo"
-      />
+      <div class="dither size-20 shrink-0 border border-border">
+        <Image
+          width={160}
+          format="webp"
+          quality="mid"
+          src={bpsuLogo}
+          draggable="false"
+          loading="lazy"
+          class="size-full select-none object-cover"
+          alt="Bataan Peninsula State University logo"
+        />
+      </div>
       <div class="flex w-full flex-col padding-md">
         <section class="flex flex-col justify-between lg:flex-row">
           <h1 class="font-semibold text-primary">

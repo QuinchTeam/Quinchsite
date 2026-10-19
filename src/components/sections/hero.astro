@@ -7,19 +7,21 @@ import Link from "@/components/ui/link.astro";
 
 <header class="flex flex-col items-start spacing-lg mt-10">
   <div class="flex flex-1 items-center spacing-lg">
-    <Image
-      src={profilePicture}
-      width={280}
-      height={280}
-      format="webp"
-      quality="high"
-      loading="eager"
-      fetchpriority="high"
-      decoding="async"
-      draggable="false"
-      class="size-35 select-none border object-cover"
-      alt="Cyril James - Full-Stack Engineer"
-    />
+    <div class="dither size-35 shrink-0 select-none border">
+      <Image
+        src={profilePicture}
+        width={280}
+        height={280}
+        format="webp"
+        quality="high"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+        draggable="false"
+        class="size-full object-cover"
+        alt="Cyril James - Full-Stack Engineer"
+      />
+    </div>
 
     <div class="flex flex-col justify-center spacing-xs">
       <SectionTitle text="Cyril James" class="text-3xl" />

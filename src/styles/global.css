@@ -92,6 +92,24 @@
   aspect-ratio: 1280 / 625;
 }
 
+/* 1px checkerboard over images, matching the sky's dithered look. */
+@utility dither {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-conic-gradient(
+        var(--background) 0 25%,
+        transparent 0 50%
+      )
+      0 0 / 2px 2px;
+    opacity: 0.35;
+  }
+}
+
 @utility outline-offset-xs {
   outline-offset: var(--spacing-xs);
 }
