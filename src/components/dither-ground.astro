@@ -454,7 +454,8 @@
         ? mix(background, primary, dark ? 0.06 : 0.12)
         : mix(background, rgb("#0e1a22"), dark ? 0.6 : 0.4));
       p.fillRect(boardX + 1, boardY + 1, boardW - 2, boardH - 2);
-      // League emblem: gold L (H light, G gold, D dark) over a gold ring and a teal swirl (T dark, C cyan, L light).
+      // League emblem traced from the real logo: beveled gold L (H light, G gold, D dark) over a gold ring
+      // and a teal swirl (T dark, C cyan, L light), with board-colored gaps standing in for its black outline.
       const tones: Record<string, string> = {
         H: swatch(colored ? mix(primary, rgb("#ffffff"), 0.55) : rgb("#f0e6d2")),
         G: swatch(metal),
@@ -464,27 +465,27 @@
         L: swatch(colored ? mix(foreground, rgb("#ffffff"), 0.5) : rgb("#7fe8f5")),
       };
       const icon = [
-        "...HH....H.........",
-        "....HHHH..HHHG.....",
-        "....HGGGH.CCHGG....",
-        "....HGGGD.TTCCGG...",
-        "..H.HGGGD.LCTTCGG..",
-        ".HH.HGGGD.TLLCTCGG.",
-        ".HC.HGGGD.TTCLLCCD.",
-        "HHC.HGGGD.TTTTLLCDD",
-        "HHC.HGGGD.TTTTCLCDD",
-        "HHC.HGGGD.TTTCLLCDD",
-        "HHC.HGGGD.TTCLLTCDD",
-        "HHC.HGGGD.TCLCTTCDD",
-        "HHC.HGGGD.CLLCTTCDD",
-        ".HC.HGGGD.TLLCTCCD.",
-        ".GG.HGGGD.TTCLCCDD.",
-        "..G.HGGGD.TTTTCDD..",
-        "....HGGGD..........",
-        "....HGGGGHHHHHHHH..",
-        "....HGGGGGGGGGGGD..",
-        "....HGGGGGDDDDDD...",
-        "...DDDDDDD.........",
+        "..HHHHHH...........",
+        "...HGGGD...........",
+        "...HGGGD.HGGGG.....",
+        "...HGGGD..GGGGG....",
+        "...HGGGD.TT..GGG...",
+        "...HGGGD.CTTT..GG..",
+        ".G.HGGGD.LLCTT..GG.",
+        ".G.HGGGD.CLLLCC.GG.",
+        "GG.HGGGD.TCCLLLC.GG",
+        "GG.HGGGD.TTTCCLL.GG",
+        "GG.HGGGD.TTTTCLL.GG",
+        "GG.HGGGD.TTTTCCL.GG",
+        "GG.HGGGD.TTTTCLL.GG",
+        "GG.HGGGD.TTTTCLL.GG",
+        "GG.HGGGD.TTTCCL.DDD",
+        ".G.HGGGD.TTTCCL.DD.",
+        ".G.HGGGD...........",
+        "...HGGGGHHHHHHHHHH.",
+        "...HGGGGGGGGGGGGD..",
+        "..HGGGGGGGGGGGGGD..",
+        "..HDDDDDDDDDDDDD...",
       ];
       icon.forEach((row, y) => {
         for (let x = 0; x < row.length; x++) {
