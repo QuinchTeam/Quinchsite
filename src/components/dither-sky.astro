@@ -20,16 +20,14 @@
 </style>
 
 <script>
+  import { createComet, createFlock, drawComet, drawFlock, drawStar, noise, sparkleAt } from "@/components/sky-sprites";
+
   const canvas = document.querySelector<HTMLCanvasElement>("[data-dither-sky]");
   const context = canvas?.getContext("2d", { alpha: false });
 
   if (canvas && context) {
     const root = document.documentElement;
     const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-    const noise = (x: number, y: number) => {
-      const value = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-      return value - Math.floor(value);
-    };
     // Let canvas normalize any CSS color: the minifier shortens tokens like #ffffff to #fff.
     const probe = document.createElement("canvas").getContext("2d")!;
     const rgb = (color: string) => {
@@ -54,8 +52,9 @@
     let elapsed = 0;
     let celestialY = 0;
     let celestialRadius = 0;
-    let nextComet = 4 + Math.random() * 5;
-    const comet = { start: -Infinity, x: 0, y: 0, length: 80 };
+    const comet = createComet();
+    const flock = createFlock();
+    let birdColor = "";
     // Fixed seed so clouds and stars look the same on every load.
     const cloudSeed = 137;
 
@@ -67,7 +66,8 @@
       canvas.width = layer.width = width;
       canvas.height = layer.height = height;
       dark = root.classList.contains("dark");
-      const colored = ["teal", "azure", "crimson", "aurora"].some((theme) => root.classList.contains(theme));
+      const theme = ["teal", "azure", "crimson", "aurora"].find((name) => root.classList.contains(name)) ?? "default";
+      const colored = theme !== "default";
       const styles = getComputedStyle(root);
       const background = rgb(styles.getPropertyValue("--background"));
       const primary = rgb(styles.getPropertyValue("--primary"));
@@ -75,15 +75,25 @@
       // Light themed skies lean on the primary hue so the gradient stays visible on pale backgrounds.
       const sky = colored ? (dark ? ink : blend(ink, primary, 0.6)) : rgb(dark ? "#233552" : "#82b8dc");
       skyStrength = dark ? 0.3 : colored ? 0.5 : 0.72;
-      const cloud = colored ? primary : rgb(dark ? "#c3d2e8" : "#b4bac2");
+      // Light skies warm (or for aurora, glow green) into a haze mid-sky, then fade into the page.
+      const hazes: Record<string, string> = { default: "#f6e7b4", teal: "#f7dcc0", azure: "#f6e3a8", crimson: "#f8d9a6", aurora: "#cdeedd" };
+      const haze = dark ? null : rgb(hazes[theme]);
+      const skyAt = (t: number) => {
+        const tint = haze ? blend(background, haze, Math.sin(Math.min(1, t / 0.8) * Math.PI) * 0.6) : background;
+        return mix(tint, sky, (1 - t) ** 1.4 * skyStrength);
+      };
+      const cloud = colored ? (dark ? primary : blend(primary, rgb("#ffffff"), 0.82)) : rgb(dark ? "#c3d2e8" : "#e9e4d8");
       // Dark --foreground is light like --primary, so dark themed clouds need a dark tinted shadow to keep shading range.
-      const shadow = colored ? (dark ? blend(background, primary, 0.25) : ink) : rgb(dark ? "#283a50" : "#6b737d");
+      const shadow = colored ? (dark ? blend(background, primary, 0.25) : blend(primary, rgb("#1e2430"), 0.3)) : rgb(dark ? "#283a50" : "#323946");
+      // Light clouds run dark underside -> gray mid -> pale sunlit tops, tinted by the theme, so they don't read flat.
+      const cloudMid = dark ? null : colored ? blend(primary, rgb("#8a93a1"), 0.45) : rgb("#6e7785");
+      birdColor = mix(shadow, sky, 0.2);
       foreground = colored ? mix(background, primary, 0.85) : dark ? "#e7ebff" : "#fff4c2";
 
       layerContext.fillStyle = styles.getPropertyValue("--background");
       layerContext.fillRect(0, 0, width, height);
       for (let y = 0; y < height; y += 3) {
-        layerContext.fillStyle = mix(background, sky, (1 - y / height) ** 1.4 * skyStrength);
+        layerContext.fillStyle = skyAt(y / height);
         layerContext.fillRect(0, y, width, 3);
       }
 
@@ -160,7 +170,11 @@
             ry: 0.2 + noise(seed + lobe, 11) * 0.1,
           };
         });
-        const tones = Array.from({ length: 12 }, (_, tone) => mix(shadow, cloud, tone / 11));
+        const tones = Array.from({ length: 12 }, (_, tone) => {
+          const amount = tone / 11;
+          if (!cloudMid) return mix(shadow, cloud, amount);
+          return amount < 0.5 ? mix(shadow, cloudMid, amount * 2) : mix(cloudMid, cloud, amount * 2 - 1);
+        });
         const cloudContext = sprite.getContext("2d")!;
         for (let y = 0; y < sprite.height; y += 3) {
           for (let x = 0; x < sprite.width; x += 3) {
@@ -184,14 +198,20 @@
             const underside = Math.max(0, Math.min(1, (ny - undersideStart) / 0.36));
             const fade = (1 - underside) ** 1.5;
             const skyHeight = Math.max(0, Math.min(1, (cloudY + y) / height));
-            coverContext.fillStyle = mix(background, sky, (1 - skyHeight) ** 1.4 * skyStrength);
+            coverContext.fillStyle = skyAt(skyHeight);
             coverContext.globalAlpha = edge * Math.sqrt(fade) * (depth > 0.55 ? 1 : 0.4 + depth);
             coverContext.fillRect(x, y, 3, 3);
-            if (noise(x + seed, y + 13) > edge * fade) continue;
             const billow = Math.sin(nx * 13 + seed) * Math.sin(ny * 10) * 0.08;
-            const illumination = 0.2 + Math.sqrt(shape) * 0.5 + lighting + billow - ny * 0.1;
+            const illumination = 0.2 + Math.sqrt(shape) * 0.5 + lighting + billow - ny * (cloudMid ? 0.42 : 0.1);
             const shade = illumination * 11 + noise(x, y) * 0.65;
             cloudContext.fillStyle = tones[Math.max(0, Math.min(11, Math.floor(shade)))];
+            if (cloudMid) {
+              // Dots alone can't darken a pale sky, so light clouds get a faint shaded body for curvature.
+              // Fades out well before the dots do, so the underside still dissolves into dots, not a gray band.
+              cloudContext.globalAlpha = edge ** 2 * fade ** 3 * 0.22;
+              cloudContext.fillRect(x, y, 3, 3);
+            }
+            if (noise(x + seed, y + 13) > edge * fade) continue;
             cloudContext.globalAlpha = edge * Math.sqrt(fade) * (0.7 + noise(x + seed, y + 21) * 0.3);
             cloudContext.fillRect(x, y, 1, 1);
           }
@@ -203,7 +223,7 @@
           y: cloudY,
           speed: 0.8 + depth * 5 + noise(seed, 5) * 4,
           depth,
-          opacity: dark ? 0.3 + depth * 0.5 : colored ? 0.45 + depth * 0.5 : 1,
+          opacity: dark ? 0.3 + depth * 0.5 : 1,
         });
       }
       clouds.sort((a, b) => a.depth - b.depth);
@@ -220,11 +240,8 @@
           const x = Math.floor(noise(seed, 1) * width);
           const y = Math.floor(noise(seed, 2) * height * 0.88);
           if (Math.hypot(x - width / 2, y - celestialY) < celestialRadius + 8) continue;
-          const period = 12 + noise(seed, 24) * 24;
-          const phase = (elapsed / period + noise(seed, 25)) % 1;
-          const sparkle = Math.max(0, 1 - Math.abs(phase - 0.5) / 0.09) ** 2;
-          context.globalAlpha = 0.15 + noise(seed, 26) * 0.18 + sparkle * 0.22;
-          context.fillRect(x, y, index % 13 === 0 ? 2 : 1, 1);
+          const sparkle = sparkleAt(elapsed, seed);
+          drawStar(context, x, y, index % 13 === 0 ? 2 : 1, 0.15 + noise(seed, 26) * 0.18 + sparkle * 0.22, sparkle);
         }
         context.globalAlpha = 1;
       }
@@ -248,25 +265,11 @@
         context.drawImage(cloud.image, Math.round(x), Math.round(cloud.y));
       }
       context.globalAlpha = 1;
-      if (dark && !reducedMotion.matches) {
-        if (elapsed >= nextComet) {
-          comet.start = elapsed;
-          comet.x = width * (0.08 + Math.random() * 0.55);
-          comet.y = height * (0.12 + Math.random() * 0.22);
-          comet.length = 60 + Math.random() * 60;
-          nextComet = elapsed + 14 + Math.random() * 18;
-        }
-        const progress = (elapsed - comet.start) / 1.8;
-        if (progress >= 0 && progress < 1) {
-          const headX = comet.x + progress * Math.min(width * 0.5, 330);
-          const headY = comet.y + progress * height * 0.25;
-          context.fillStyle = foreground;
-          for (let step = 0; step < comet.length; step += 3) {
-            context.globalAlpha = Math.sin(progress * Math.PI) * (1 - step / comet.length) ** 2;
-            context.fillRect(Math.round(headX - step), Math.round(headY - step * 0.4), 2, 2);
-          }
-          context.globalAlpha = 1;
-        }
+      if (!reducedMotion.matches) {
+        const sky = [{ x: 0, y: 0, width, height }];
+        if (dark) drawComet(context, comet, elapsed, sky, foreground);
+        else drawFlock(context, flock, elapsed, sky, birdColor);
+        context.globalAlpha = 1;
       }
     }
 
