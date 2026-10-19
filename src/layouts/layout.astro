@@ -1,6 +1,7 @@
 ---
 import { ClientRouter } from "astro:transitions";
 import NavBar from "@/components/navbar.astro";
+import DitherBackdrop from "@/components/dither-backdrop.astro";
 import DitherSky from "@/components/dither-sky.astro";
 import DitherGround from "@/components/dither-ground.astro";
 import "@/styles/global.css";
@@ -169,7 +170,8 @@ const structuredData = {
     </script>
     <ClientRouter />
   </head>
-  <body>
+  <body class="relative">
+    <DitherBackdrop />
     <NavBar floating />
     <DitherSky />
     <main

@@ -1,0 +1,167 @@
+<canvas
+  class="dither-backdrop"
+  aria-hidden="true"
+  transition:persist="dither-backdrop"
+  data-dither-backdrop></canvas>
+
+<style>
+  /* Spans the whole page behind everything so it scrolls with the content; the
+     opaque hero sky covers it at the top. <body> is the positioned ancestor. */
+  .dither-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    image-rendering: pixelated;
+  }
+</style>
+
+<script>
+  import { createComet, createFlock, drawComet, drawFlock, drawStar, noise, sparkleAt, type Area } from "@/components/sky-sprites";
+
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-dither-backdrop]");
+  const context = canvas?.getContext("2d");
+
+  if (canvas && context) {
+    const root = document.documentElement;
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+    // max-w-4xl, the content column on every page. Comets, birds, and constellations stay in the gutters beside it.
+    const column = 896;
+    const comet = createComet();
+    const flock = createFlock();
+    let width = 0;
+    let height = 0;
+    let dark = false;
+    let starColor = "";
+    let birdColor = "";
+    let gutters: Area[] = [];
+    let constellations: { stars: { x: number; y: number; bright: boolean }[]; lines: number[][] }[] = [];
+    // Real constellations, traced from star charts into a unit box: [x, y, bright] per star, then the index pairs to join.
+    const charts: { stars: number[][]; lines: number[][] }[] = [
+      // Big Dipper: Alkaid, Mizar, Alioth, Megrez, Phecda, Merak, Dubhe.
+      { stars: [[0, 0.35, 1], [0.18, 0.18, 1], [0.32, 0.12, 1], [0.48, 0.15, 0], [0.52, 0.38, 1], [0.8, 0.42, 1], [0.82, 0.12, 1]], lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 3]] },
+      // Orion: Meissa, Betelgeuse, Bellatrix, Alnitak, Alnilam, Mintaka, Saiph, Rigel.
+      { stars: [[0.42, 0, 0], [0.15, 0.1, 1], [0.65, 0.15, 1], [0.32, 0.5, 1], [0.42, 0.47, 1], [0.52, 0.44, 1], [0.25, 0.88, 1], [0.75, 0.85, 1]], lines: [[0, 1], [0, 2], [1, 3], [2, 5], [3, 4], [4, 5], [3, 6], [5, 7]] },
+      // Crux, the Southern Cross: Gacrux, Acrux, Mimosa, Imai.
+      { stars: [[0.42, 0, 1], [0.38, 0.75, 1], [0.1, 0.32, 1], [0.66, 0.28, 0]], lines: [[0, 1], [2, 3]] },
+      // Cassiopeia: Caph, Schedar, Navi, Ruchbah, Segin.
+      { stars: [[0, 0.15, 1], [0.25, 0.45, 1], [0.5, 0.25, 1], [0.72, 0.5, 1], [1, 0.3, 0]], lines: [[0, 1], [1, 2], [2, 3], [3, 4]] },
+      // Cygnus, the Northern Cross: Deneb, Sadr, Albireo, Gienah, Fawaris.
+      { stars: [[0.5, 0, 1], [0.5, 0.33, 1], [0.52, 1, 1], [0.12, 0.5, 1], [0.88, 0.18, 1]], lines: [[0, 1], [1, 2], [3, 1], [1, 4]] },
+      // Leo: Regulus, Eta, Algieba, Adhafera, Rasalas, Zosma, Denebola, Chertan.
+      { stars: [[0.2, 0.75, 1], [0.22, 0.5, 0], [0.28, 0.3, 1], [0.2, 0.15, 0], [0.08, 0.12, 0], [0.7, 0.38, 1], [1, 0.55, 1], [0.68, 0.62, 0]], lines: [[0, 1], [1, 2], [2, 3], [3, 4], [2, 5], [5, 6], [6, 7], [7, 0]] },
+    ];
+    let frame = 0;
+    let lastTime = 0;
+    let elapsed = 0;
+
+    function rebuild() {
+      if (!canvas) return;
+      width = canvas.width = Math.max(1, Math.round(canvas.clientWidth));
+      height = canvas.height = Math.max(1, Math.round(canvas.clientHeight));
+      dark = root.classList.contains("dark");
+      const colored = ["teal", "azure", "crimson", "aurora"].some((theme) => root.classList.contains(theme));
+      const styles = getComputedStyle(root);
+      starColor = colored ? styles.getPropertyValue("--primary").trim() : "#e7ebff";
+      birdColor = styles.getPropertyValue("--foreground").trim();
+      const gutter = (width - column) / 2 - 24;
+      gutters = gutter >= 100 ? [{ x: 0, y: 0, width: gutter, height }, { x: width - gutter, y: 0, width: gutter, height }] : [];
+      // One constellation per 1100px of page, alternating gutters wide enough to hold it.
+      const sides = gutters.filter((area) => area.width >= 140);
+      constellations = Array.from({ length: sides.length ? Math.floor(height / 1100) : 0 }, (_, band) => {
+        const area = sides[band % sides.length];
+        const chart = charts[band % charts.length];
+        const size = Math.min(area.width - 24, 180);
+        const x = area.x + 12 + (area.width - 24 - size) * noise(900 + band, 1);
+        const y = band * 1100 + 1100 * (0.2 + noise(900 + band, 2) * 0.5);
+        return {
+          stars: chart.stars.map(([starX, starY, bright]) => ({ x: Math.round(x + starX * size), y: Math.round(y + starY * size), bright: bright === 1 })),
+          lines: chart.lines,
+        };
+      });
+      draw();
+    }
+
+    function draw() {
+      if (!context) return;
+      // The canvas is page-tall, so only repaint the visible band (plus a margin), clipped so edges don't stack.
+      const top = Math.max(0, Math.floor(scrollY) - 100);
+      const bottom = Math.min(height, Math.ceil(scrollY + innerHeight) + 100);
+      context.save();
+      context.beginPath();
+      context.rect(0, top, width, bottom - top);
+      context.clip();
+      context.clearRect(0, top, width, bottom - top);
+      const moving = !reducedMotion.matches;
+      const view = gutters.map((area) => ({ ...area, y: scrollY, height: innerHeight }));
+      if (dark) {
+        context.fillStyle = starColor;
+        // A few scattered stars over the whole page.
+        for (let index = 0; index < Math.round((width * height) / 38000); index++) {
+          const seed = index + 500;
+          const y = Math.floor(noise(seed, 2) * height);
+          if (y < top - 5 || y > bottom + 5) continue;
+          const sparkle = sparkleAt(elapsed, seed);
+          drawStar(context, Math.floor(noise(seed, 1) * width), y, 1, 0.12 + noise(seed, 26) * 0.15 + sparkle * 0.22, sparkle);
+        }
+        constellations.forEach(({ stars, lines }, band) => {
+          if (stars[0].y < top - 1100 || stars[0].y > bottom + 1100) return;
+          context.globalAlpha = 0.14;
+          for (const [start, end] of lines) {
+            const from = stars[start];
+            const to = stars[end];
+            const length = Math.hypot(to.x - from.x, to.y - from.y);
+            for (let step = 6; step < length - 6; step += 4) {
+              context.fillRect(Math.round(from.x + ((to.x - from.x) * step) / length), Math.round(from.y + ((to.y - from.y) * step) / length), 1, 1);
+            }
+          }
+          stars.forEach((star, index) => {
+            const sparkle = sparkleAt(elapsed, 950 + band * 10 + index);
+            drawStar(context, star.x, star.y, star.bright ? 2 : 1, (star.bright ? 0.55 : 0.35) + sparkle * 0.3, sparkle);
+          });
+        });
+        if (moving) drawComet(context, comet, elapsed, view, starColor);
+      } else if (moving) {
+        drawFlock(context, flock, elapsed, view, birdColor);
+      }
+      context.restore();
+    }
+
+    function tick(time: number) {
+      frame = 0;
+      if (document.hidden || reducedMotion.matches) return;
+      if (time - lastTime >= 1000 / 15) {
+        if (lastTime) elapsed += Math.min((time - lastTime) / 1000, 0.2);
+        lastTime = time;
+        draw();
+      }
+      frame = requestAnimationFrame(tick);
+    }
+
+    function updateAnimation() {
+      cancelAnimationFrame(frame);
+      lastTime = 0;
+      frame = 0;
+      if (!document.hidden && !reducedMotion.matches) frame = requestAnimationFrame(tick);
+      else draw();
+    }
+
+    const theme = () => ["dark", "teal", "azure", "crimson", "aurora"].filter((name) => root.classList.contains(name)).join();
+    let currentTheme = theme();
+    // ResizeObserver also fires once on observe, which handles the first build.
+    new ResizeObserver(rebuild).observe(canvas);
+    new MutationObserver(() => {
+      // Ignore unrelated <html> classes such as preload/scroll-restoring.
+      if (theme() === currentTheme) return;
+      currentTheme = theme();
+      rebuild();
+    }).observe(root, { attributes: true, attributeFilter: ["class"] });
+    reducedMotion.addEventListener("change", updateAnimation);
+    document.addEventListener("visibilitychange", updateAnimation);
+    // Paint newly revealed bands right away instead of waiting for the next 15fps tick.
+    addEventListener("scroll", draw, { passive: true });
+    updateAnimation();
+  }
+</script>
