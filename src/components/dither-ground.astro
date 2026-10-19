@@ -74,7 +74,15 @@
     let bandTop = 0;
     let bandBottom = 0;
     let cloudOffset = 0;
+    let elapsed = 0;
     let previousTime = 0;
+    // Rows recomposed each frame: the cloud band, stretched to cover any flickering windows.
+    let animatedTop = 0;
+    let animatedBottom = 0;
+    // Lit windows that flicker (dark mode only), and a plane crossing behind the skyline.
+    const flickers: { x: number; y: number; size: number; off: string; seed: number; buzz: boolean }[] = [];
+    const plane = { start: -Infinity, next: 4 + Math.random() * 8, y: 0, direction: 1, speed: 20 };
+    let planeBody = "";
     let frame = 0;
     let visible = false;
 
@@ -154,6 +162,7 @@
       const primary = rgb(styles.getPropertyValue("--primary"));
       const foreground = rgb(styles.getPropertyValue("--foreground"));
       dark = root.classList.contains("dark");
+      flickers.length = 0;
       const colored = ["teal", "azure", "crimson", "aurora"].some((theme) => root.classList.contains(theme));
       // Light themed --foreground is a deep shade that turns the haze murky; --primary keeps the theme's hue.
       const sky = colored ? (dark ? foreground : primary) : rgb(dark ? "#526885" : "#82b8dc");
@@ -303,6 +312,7 @@
             for (let y = top + 2; y < bottom; y += 3) p.fillRect(buildingX, y, w - 3, 0.5);
           }
           // Small, dense windows on a 2-unit grid, occasionally lit in runs like occupied floors.
+          const unlit = css(mix(background, dark ? sky : ink, tone));
           for (let y = top + 3; y < bottom; y += 2) {
             const floorLit = noise(seed, y * 3) > 0.7 ? 0.2 : 0;
             for (let wx = buildingX + 2; wx < buildingX + w - 2; wx += 2) {
@@ -310,6 +320,18 @@
               if (lit < d.lit) continue;
               p.fillStyle = css(mix(background, light, d.glow + Math.min(lit, 1) * 0.3));
               p.fillRect(wx, y, px, px);
+              // A few lit windows on the nearer layers flicker at night; record them in screen pixels.
+              if (dark && layer && noise(wx + seed, y + 97) > 0.97) {
+                const m = p.getTransform();
+                flickers.push({
+                  x: Math.round(m.a * wx + m.e),
+                  y: Math.round(m.d * y + m.f),
+                  size: Math.max(1, Math.round(m.a * px)),
+                  off: unlit,
+                  seed: flickers.length + 1,
+                  buzz: noise(wx + seed, y + 98) > 0.85,
+                });
+              }
             }
           }
           if (layer === 1 && i % 7 === 2) {
@@ -498,6 +520,13 @@
       drawBuildings(2);
       drawTrees(1);
       p.restore();
+      planeBody = css(dark ? mix(background, sky, 0.45) : mix(background, ink, 0.35));
+      animatedTop = bandTop;
+      animatedBottom = bandBottom;
+      for (const pane of flickers) {
+        animatedTop = Math.min(animatedTop, pane.y);
+        animatedBottom = Math.min(height, Math.max(animatedBottom, pane.y + pane.size));
+      }
       compose(0, height);
     }
 
@@ -509,7 +538,16 @@
         const x = ((cloud.x + cloudOffset * cloud.speed + cloud.width) % (width + cloud.width)) - cloud.width;
         sceneContext.drawImage(cloud.image, Math.round(x), Math.round(cloud.y));
       }
+      drawPlane();
       sceneContext.drawImage(front, 0, top, width, rows, 0, top, width, rows);
+      for (const pane of flickers) {
+        if (pane.y < top || pane.y >= top + rows) continue;
+        // Most flickers are lights switching on and off every few seconds; a few buzz like failing tubes.
+        const rate = pane.buzz ? 9 : 0.2;
+        if (noise(pane.seed, Math.floor(elapsed * rate + pane.seed * 13)) > (pane.buzz ? 0.45 : 0.3)) continue;
+        sceneContext.fillStyle = pane.off;
+        sceneContext.fillRect(pane.x, pane.y, pane.size, pane.size);
+      }
 
       // Ordered quantization makes gradients and silhouettes share the sky's pixel texture.
       const pixels = sceneContext.getImageData(0, top, width, rows);
@@ -527,14 +565,60 @@
       context.putImageData(pixels, 0, top);
     }
 
+    // Side-on airliner, tail left and nose right; mirrored when flying left.
+    const planeSprite = [
+      "#..........",
+      "##.........",
+      "##########.",
+      ".#########.",
+      "....###....",
+    ];
+    // Fuselage silhouette plus a steady nav light at the nose, a blinking red beacon, and a white tail strobe.
+    function drawPlane() {
+      const flown = elapsed - plane.start;
+      const travel = flown * plane.speed;
+      if (!(travel <= width + 40)) return;
+      const left = Math.round(plane.direction > 0 ? -20 + travel : width + 20 - travel) - 5;
+      const top = Math.round(plane.y) - 2;
+      const at = (column: number, row: number) =>
+        sceneContext.fillRect(left + (plane.direction > 0 ? column : 10 - column), top + row, 1, 1);
+      sceneContext.fillStyle = planeBody;
+      planeSprite.forEach((line, row) => {
+        for (let column = 0; column < line.length; column++) if (line[column] === "#") at(column, row);
+      });
+      sceneContext.fillStyle = plane.direction > 0 ? "#4fe08a" : "#ff5a4f";
+      at(9, 2);
+      if (flown % 1 < 0.5) {
+        sceneContext.fillStyle = "#ff5a4f";
+        at(5, 1);
+      }
+      const strobe = flown % 1.4;
+      if (strobe < 0.08 || (strobe > 0.2 && strobe < 0.28)) {
+        sceneContext.fillStyle = "#f4f4ff";
+        at(0, 0);
+      }
+    }
+
     // Clouds drift at most ~10px/s and snap to whole pixels, so 15fps shows every step.
     function animate(time: number) {
       frame = 0;
       if (!visible || document.hidden || !clouds.length) return;
       if (time - previousTime >= 1000 / 15) {
-        if (previousTime) cloudOffset = (cloudOffset + Math.min(time - previousTime, 200) * 0.008) % 2000;
+        if (previousTime) {
+          const step = Math.min(time - previousTime, 200);
+          cloudOffset = (cloudOffset + step * 0.008) % 2000;
+          elapsed += step / 1000;
+        }
         previousTime = time;
-        compose(bandTop, bandBottom - bandTop);
+        // A new plane every 8-28s after the last one clears the screen, flying inside the cloud band so it redraws cleanly.
+        if (elapsed >= plane.next && bandBottom - bandTop > 16) {
+          plane.start = elapsed;
+          plane.direction = Math.random() < 0.5 ? 1 : -1;
+          plane.speed = 16 + Math.random() * 10;
+          plane.y = bandTop + 6 + Math.random() * (bandBottom - bandTop - 12);
+          plane.next = elapsed + (width + 40) / plane.speed + 8 + Math.random() * 20;
+        }
+        compose(animatedTop, animatedBottom - animatedTop);
       }
       frame = requestAnimationFrame(animate);
     }
